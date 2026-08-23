@@ -97,3 +97,38 @@ All OK — Alembic initialised, URL wired from settings, Base.metadata attached
 - **Problem:** Alembic was initialized but did not initially discover SQLAlchemy models.
 - **Solution:** Imported `Organization` in `alembic/env.py` so `Base.metadata` includes the model; `alembic check` now detects the pending `organizations` table.
 - **Validation:** Alembic configuration and metadata discovery validated; no migration generated.
+
+### Task 2.6 — FastAPI get_db Dependency
+
+- **Branch:** `feat/database-schema`
+- **Objective:** Add FastAPI `get_db()` database session dependency using `SessionLocal`.
+- **Problem:** Endpoints and services required a standardized session lifecycle dependency yielding SQLAlchemy Sessions with guaranteed cleanup.
+- **Files Updated:** `backend/app/db/dependencies.py`
+- **Validation:** Validated `get_db()` generator yielding `Session` from `SessionLocal` with cleanup in `finally`.
+- **Status:** ✅ Completed
+
+### Task 2.7 — Database Connectivity Validation Endpoint
+
+- **Branch:** `feat/database-schema`
+- **Objective:** Add a database connectivity health endpoint executing `SELECT 1` via `get_db()`.
+- **Problem:** No API endpoint existed to test and verify active PostgreSQL database connectivity.
+- **Files Updated:** `backend/app/api/v1/health.py`
+- **Validation:** Validated `/api/v1/health/db` endpoint executing `SELECT 1` using the `get_db()` dependency.
+- **Status:** ✅ Completed
+
+### Task 2.8 — Minimal Organization API
+
+- **Branch:** `feat/database-schema`
+- **Objective:** Implement minimal Organization API for creating and retrieving organizations using `Organization` model and `get_db()`.
+- **Problem:** No REST API existed to create or fetch organizations from the database.
+- **Files Updated:**
+  - `backend/app/schemas/organization.py`
+  - `backend/app/schemas/__init__.py`
+  - `backend/app/services/organization.py`
+  - `backend/app/services/__init__.py`
+  - `backend/app/api/v1/organizations.py`
+  - `backend/app/api/router.py`
+- **Validation:** Validated organization creation (POST `/api/v1/organizations/`) and retrieval (GET `/api/v1/organizations/`, GET `/api/v1/organizations/{id}`).
+- **Status:** ✅ Completed
+
+

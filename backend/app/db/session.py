@@ -6,3 +6,4 @@ from app.core.settings import settings
 engine = create_engine(settings.DATABASE_URL)
 
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+
