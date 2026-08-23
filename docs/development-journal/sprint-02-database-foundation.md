@@ -90,3 +90,10 @@ All OK — Alembic initialised, URL wired from settings, Base.metadata attached
 **Validation:** `alembic check` completed successfully with no upgrade operations detected.
 
 **Status:** ✅ Completed
+
+### Task 2.5 — Alembic Initialization
+
+- **Branch:** `feat/database-schema`
+- **Problem:** Alembic was initialized but did not initially discover SQLAlchemy models.
+- **Solution:** Imported `Organization` in `alembic/env.py` so `Base.metadata` includes the model; `alembic check` now detects the pending `organizations` table.
+- **Validation:** Alembic configuration and metadata discovery validated; no migration generated.
