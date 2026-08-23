@@ -91,3 +91,41 @@ Created Sprint documentation.
 ## Notes / Learnings
 
 > Sprint 1 is intentionally infrastructure-only. No AI agents or RAG pipeline will be implemented until the backend foundation is stable.
+## IBM Bob Task Log
+
+### Task 01 — Backend Startup Debugging
+
+**Sprint:** Sprint 1 — Backend Foundation
+
+**Branch:** `feat/back-setup`
+
+**Objective:** Fix the FastAPI backend startup failure and validate the application boots successfully.
+
+#### Problem
+
+The backend failed during startup because:
+- `PROJECT_NAME` was required in `Settings` but no `.env` file existed.
+- `FASTAPI(...)` was used instead of `FastAPI(...)` in `main.py`.
+
+#### IBM Bob Contribution
+
+Used IBM Bob (Agent Mode) to:
+1. Reproduce the startup failure.
+2. Identify the root causes.
+3. Apply the minimal fix only to affected backend files.
+4. Validate application startup and OpenAPI generation.
+
+#### Files Updated
+
+- `backend/app/main.py`
+- `backend/app/core/settings.py`
+- `backend/.env.example`
+
+#### Validation Result
+
+- FastAPI application imported successfully.
+- Health endpoint mounted correctly.
+- OpenAPI documentation generated successfully.
+- Backend startup completed without errors.
+
+**Status:** ✅ Completed

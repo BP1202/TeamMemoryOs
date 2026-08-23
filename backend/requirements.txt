@@ -4,3 +4,9 @@ pydantic
 pydantic-settings
 python-dotenv
 httpx
+
+# Database
+sqlalchemy[asyncio]
+alembic
+psycopg[binary]
+pgvector
