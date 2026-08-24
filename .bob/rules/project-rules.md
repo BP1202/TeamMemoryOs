@@ -171,3 +171,13 @@ Do not add dependencies without justification.
 
 When uncertain about an architectural decision, explain the tradeoff before making
 a large change.
+
+## Development Journal Rule
+
+Every completed implementation task must append a concise engineering log to the active sprint journal.
+
+Rules:
+- One entry per task.
+- Maximum 12 lines.
+- Include branch, objective, problem, files updated, validation, and status.
+- Never remove or edit previous completed entries.

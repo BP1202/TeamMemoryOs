@@ -1,0 +1,28 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: teammemory-postgres
+    environment:
+      POSTGRES_DB: teammemory_os
+      POSTGRES_USER: teammemory_admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    ports:
+      - "5433:5432"
+    volumes:
+      - teammemory_pgdata:/var/lib/postgresql/data
+    networks:
+      - teammemory-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U teammemory_admin -d teammemory_os"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  teammemory_pgdata:
+    name: teammemory_pgdata
+
+networks:
+  teammemory-network:
+    name: teammemory-network
