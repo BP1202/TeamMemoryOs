@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.core.settings import settings  # noqa: E402
 from app.db.base import Base            # noqa: E402
-from app.models.organization import Organization
+import app.models  # noqa: F401 — registers Organization, User, OrganizationMember with Base.metadata
 
 # ---------------------------------------------------------------------------
 # Alembic Config object — access to values in alembic.ini
