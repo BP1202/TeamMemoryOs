@@ -4,7 +4,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.db.dependencies import get_db
+from app.models.user import User
 from app.schemas.user import UserCreate, UserRead
 from app.services.user import (
     create_user,
@@ -28,6 +30,12 @@ def create_new_user(
             detail=f"User with email '{user_in.email}' already exists",
         )
     return create_user(db, user_in)
+
+
+@router.get("/me", response_model=UserRead)
+def get_me(current_user: User = Depends(get_current_user)):
+    """Return the currently authenticated user's profile."""
+    return current_user
 
 
 @router.get("/", response_model=List[UserRead])

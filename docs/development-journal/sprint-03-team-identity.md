@@ -12,7 +12,7 @@ Build the identity layer for TeamMemoryOS including Users, Organization Membersh
 * [x] Task 3.2 — Organization Membership Model
 * [x] Task 3.3 — User & Member Schemas
 * [x] Task 3.4 — User & Member CRUD APIs
-* [ ] Task 3.5 — Authentication Foundation
+* [x] Task 3.5 — Authentication Foundation
 
 ## Engineering Log
 
@@ -80,4 +80,31 @@ Task entries will be appended after successful validation.
 **Files Updated:** `backend/app/api/v1/users.py`, `backend/app/api/v1/members.py`, `backend/app/api/router.py`
 **Validation:** `pytest tests/ -v` — 19/19 tests passed (10 member tests, 9 user tests). Routes confirmed in Swagger at `/api/v1/users` and `/api/v1/members`.
 **Security:** Input validated via Pydantic; `password_hash` excluded from responses; no secrets logged; ORM only; risk level **Low**.
+**Status:** ✅ Complete
+
+---
+
+### Task 3.5 — Authentication Foundation
+
+**Branch:** feat/team-identity
+**Objective:** Implement full JWT authentication: password hashing, token issuance, protected endpoint, and `get_current_user` dependency.
+**Problem:** User passwords were stored using an insecure SHA-256 + salt stub; no login endpoint or token-based access control existed.
+**Solution:**
+- Created `backend/app/core/security.py` — bcrypt `hash_password` / `verify_password` (direct `bcrypt` library, no passlib) and `create_access_token` / `decode_access_token` via `python-jose`.
+- Created `backend/app/schemas/auth.py` — `Token` and `TokenPayload` Pydantic schemas.
+- Created `backend/app/services/auth.py` — `authenticate_user` and `login` service functions; business logic kept out of routes.
+- Updated `backend/app/services/user.py` — replaced SHA-256 stub with `hash_password` from `security.py`.
+- Created `backend/app/api/v1/auth.py` — `POST /api/v1/auth/login` OAuth2 password flow endpoint.
+- Created `backend/app/api/deps.py` — `get_current_user` dependency using `OAuth2PasswordBearer`.
+- Updated `backend/app/api/v1/users.py` — added `GET /api/v1/users/me` protected endpoint.
+- Updated `backend/app/api/router.py` — registered auth router under `/auth`.
+- Updated `backend/app/core/settings.py` — added `JWT_SECRET_KEY`, `JWT_ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES`.
+- Updated `backend/.env.example` — documented new JWT env variables.
+**Files Updated:** `app/core/security.py`, `app/core/settings.py`, `app/schemas/auth.py`, `app/services/auth.py`, `app/services/user.py`, `app/api/v1/auth.py`, `app/api/v1/users.py`, `app/api/deps.py`, `app/api/router.py`, `.env.example`, `requirements.txt`, `tests/test_auth.py`
+**Validation:** `pytest tests/ -v` — 28/28 passed (9 auth, 10 member, 9 user). Login returns signed JWT; `GET /users/me` returns 200 with valid token and 401 without.
+**Security Audit:**
+- Input Validation: ✅ Pydantic on all endpoints
+- Secrets Exposure: None — `password_hash` never returned; JWT secret loaded from env
+- Authorization Impact: High — authentication layer introduced; all future protected routes depend on this
+- Risk Level: **Medium** (new auth surface; mitigated by bcrypt, JWT expiry, and 401 on all failure paths)
 **Status:** ✅ Complete
