@@ -14,7 +14,22 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.core.settings import settings  # noqa: E402
 from app.db.base import Base            # noqa: E402
-import app.models  # noqa: F401 — registers Organization, User, OrganizationMember with Base.metadata
+import app.models  # noqa: F401 — registers all models with Base.metadata
+
+# Register pgvector types with psycopg on each new connection so Alembic
+# can introspect vector columns during autogenerate.  The try/except guard
+# allows migrations to run even before CREATE EXTENSION vector has executed.
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
+import pgvector.psycopg as _pgvector_psycopg
+
+
+@event.listens_for(Engine, "connect")
+def _register_pgvector(dbapi_conn, _connection_record):
+    try:
+        _pgvector_psycopg.register_vector(dbapi_conn)
+    except Exception:
+        pass  # extension not yet installed — migration will create it
 
 # ---------------------------------------------------------------------------
 # Alembic Config object — access to values in alembic.ini

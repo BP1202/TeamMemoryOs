@@ -1,13 +1,18 @@
 import enum
 import uuid
 from datetime import datetime, timezone
+from typing import Optional
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import DateTime, Enum, ForeignKey, Index, Text, text
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
-from sqlalchemy import Float
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+
+# Embedding dimensionality — matches IBM Granite and OpenAI small models.
+# Changing this requires a new migration.
+EMBEDDING_DIM = 1536
 
 
 class MemoryType(str, enum.Enum):
@@ -68,10 +73,9 @@ class MemoryEntry(Base):
         JSONB,
         nullable=True,
     )
-    # Nullable embedding placeholder — will become pgvector Vector once the
-    # embedding pipeline is implemented.
-    embedding: Mapped[list | None] = mapped_column(
-        ARRAY(Float),
+    # pgvector column — nullable until an embedding pipeline populates it.
+    embedding: Mapped[Optional[list]] = mapped_column(
+        Vector(EMBEDDING_DIM),
         nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(

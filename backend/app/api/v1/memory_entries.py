@@ -8,12 +8,20 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.db.dependencies import get_db
 from app.models.user import User
-from app.schemas.memory_entry import MemoryEntryCreate, MemoryEntryRead
+from app.schemas.memory_entry import (
+    EmbeddingStore,
+    MemoryEntryCreate,
+    MemoryEntryRead,
+    SemanticSearchRequest,
+    SemanticSearchResult,
+)
 from app.services.memory_entry import (
     create_memory_entry,
     get_memory_entries_by_org,
     get_memory_entries_by_scenario,
     get_memory_entry_by_id,
+    semantic_search,
+    store_embedding,
 )
 
 router = APIRouter()
@@ -66,6 +74,59 @@ def list_memory_entries_by_scenario(
 ):
     """List memory entries for a specific scenario, newest first."""
     return get_memory_entries_by_scenario(db, scenario_id, skip=skip, limit=limit)
+
+
+@router.put("/{entry_id}/embedding", response_model=MemoryEntryRead)
+def store_memory_embedding(
+    entry_id: UUID,
+    body: EmbeddingStore,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Store a pre-computed embedding vector on a memory entry.
+
+    The caller supplies a normalised float vector of exactly
+    ``EMBEDDING_DIM`` dimensions.  Dimension validation is enforced by
+    the Pydantic schema and by the service layer.
+    """
+    try:
+        entry = store_embedding(db, entry_id, body.embedding)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    if entry is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Memory entry not found",
+        )
+    return entry
+
+
+@router.post("/search", response_model=List[SemanticSearchResult])
+def search_memory(
+    body: SemanticSearchRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Perform semantic similarity search over an organisation's memory.
+
+    Accepts a pre-computed query vector and returns the top-k most similar
+    entries ordered by cosine similarity (most relevant first).
+    """
+    try:
+        entries = semantic_search(
+            db=db,
+            query_embedding=body.query_embedding,
+            organization_id=body.organization_id,
+            top_k=body.top_k,
+            scenario_id=body.scenario_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+
+    return [
+        SemanticSearchResult(entry=MemoryEntryRead.model_validate(e), rank=i + 1)
+        for i, e in enumerate(entries)
+    ]
 
 
 @router.get("/{entry_id}", response_model=MemoryEntryRead)

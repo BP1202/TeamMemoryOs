@@ -41,3 +41,25 @@
   * `backend/tests/test_memory_entries.py` — 16 tests (create, all types, list by org/scenario, get, error cases)
 * **Validation:** 28/28 new tests pass; 55/56 total (1 pre-existing unrelated failure unchanged)
 * **Status:** ✅ Completed
+
+---
+
+### Task 4.3 — Semantic Retrieval Engine
+
+* **Branch:** `feat/memory-engine-foundation`
+* **Objective:** Implement pgvector-backed semantic retrieval — embed storage, cosine similarity search, and RAG context builder — with a provider-agnostic embedding interface.
+* **Problem:** `memory_entries.embedding` was a non-functional `ARRAY(Float)` placeholder; no retrieval, similarity search, or context building existed.
+* **Files Updated:**
+  * `backend/app/models/memory_entry.py` — replaced `ARRAY(Float)` with `Vector(1536)`; added `EMBEDDING_DIM = 1536` constant
+  * `backend/app/db/session.py` — added pgvector `register_vector` event listener on engine connect
+  * `backend/alembic/env.py` — added pgvector event listener; guard for pre-extension migrations
+  * `backend/alembic/versions/581c2cdd5ce2_…py` — `CREATE EXTENSION vector`; drop/re-add column as `vector(1536)`; HNSW cosine index
+  * `backend/app/memory/__init__.py` — new memory engine sub-package
+  * `backend/app/memory/embedding_provider.py` — `EmbeddingProvider` Protocol + `StubEmbeddingProvider` (SHA-256 deterministic, unit-normalised)
+  * `backend/app/memory/rag_context.py` — `build_rag_context` → `RAGContext`; structured prompt block formatter
+  * `backend/app/services/memory_entry.py` — added `store_embedding`, `semantic_search` (cosine `<=>` operator, org-scoped)
+  * `backend/app/schemas/memory_entry.py` — added `EmbeddingStore`, `SemanticSearchRequest`, `SemanticSearchResult`
+  * `backend/app/api/v1/memory_entries.py` — added `PUT /{id}/embedding`, `POST /search`
+  * `backend/tests/test_retrieval.py` — 25 tests across provider, service, RAG builder, and API layers
+* **Validation:** 25/25 new tests pass; 80/81 total (1 pre-existing unrelated failure unchanged); pgvector `0.8.6` confirmed; `vector(1536)` column + HNSW index verified in DB
+* **Status:** ✅ Completed
