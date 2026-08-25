@@ -19,6 +19,19 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int = 5433
     POSTGRES_DB: str = "teammemory_os"
 
+    # IBM Granite / watsonx.ai
+    # Set GRANITE_PROVIDER=stub to use the deterministic stub (default — no
+    # credentials required).  Set to "granite" to call the real watsonx.ai API.
+    GRANITE_PROVIDER: str = "stub"
+    GRANITE_API_KEY: str = ""
+    GRANITE_BASE_URL: str = "https://us-south.ml.cloud.ibm.com/ml/v1"
+    GRANITE_MODEL_ID: str = "ibm/granite-3-8b-instruct"
+    GRANITE_PROJECT_ID: str = ""
+    # Maximum tokens the model may generate in a single response.
+    GRANITE_MAX_TOKENS: int = 512
+    # Hard cap on prompt length (characters) before context is trimmed.
+    GRANITE_MAX_PROMPT_CHARS: int = 8000
+
     @computed_field
     @property
     def DATABASE_URL(self) -> str:

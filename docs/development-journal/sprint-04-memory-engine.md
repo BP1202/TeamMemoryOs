@@ -44,6 +44,46 @@
 
 ---
 
+### Task 4.4 — Granite-Powered RAG Generation
+
+* **Branch:** `feat/memory-engine-foundation`
+* **Objective:** Complete the first end-to-end RAG pipeline — semantic retrieval → context assembly → prompt building → IBM Granite inference → structured response via `POST /api/v1/chat/ask`.
+* **Problem:** Retrieval existed (4.3) but no generation layer connected it to a language model; no chat API existed.
+* **Architecture:**
+  ```
+  POST /chat/ask
+      │ ChatAskRequest (org_id, question, top_k)
+      ▼
+  run_rag()
+      ├─ StubEmbeddingProvider.embed(question) → vector
+      ├─ semantic_search() → top-k MemoryEntry (pgvector <=>)
+      ├─ build_rag_context() → RAGContext (entries + context_text)
+      ├─ build_prompt() → system + context + citations + question (trimmed to GRANITE_MAX_PROMPT_CHARS)
+      └─ GenerationProvider.generate(prompt) → answer text
+      ChatResponse(answer, citations, retrieved_memory_count, provider_used)
+  ```
+* **Files Updated:**
+  * `backend/app/core/settings.py` — added 7 `GRANITE_*` settings (provider, API key, model ID, project ID, token limit, prompt char limit)
+  * `backend/.env.example` — documented all Granite settings with defaults
+  * `backend/app/memory/generation_provider.py` — `GenerationProvider` Protocol + `StubGenerationProvider` + `GraniteProvider` (watsonx.ai via `openai` SDK) + `get_generation_provider()` factory
+  * `backend/app/memory/prompt_builder.py` — `build_prompt()` with system prompt, citations, context trimming; `_build_citations()`
+  * `backend/app/memory/rag_generation.py` — `run_rag()` full pipeline; `ChatResponse` dataclass; provider-failure guard
+  * `backend/app/schemas/chat.py` — `ChatAskRequest`, `ChatAskResponse`
+  * `backend/app/api/v1/chat.py` — `POST /ask` route (JWT required)
+  * `backend/app/api/router.py` — registered chat router at `/chat`
+  * `backend/tests/test_chat.py` — 29 tests (stub provider, factory, prompt builder, run_rag service, chat endpoint)
+* **AI Contribution:** IBM Granite invoked via `GraniteProvider` using OpenAI-compatible API; `StubGenerationProvider` makes pipeline fully testable without credentials
+* **Validation:** 29/29 new tests pass; 109/110 total (1 pre-existing unrelated failure unchanged)
+* **Security Review:**
+  * `GRANITE_API_KEY` read from env only — never logged, never returned in responses
+  * All `/chat/*` routes require `get_current_user` JWT — 401 without token
+  * Organisation scoping enforced at retrieval layer — cross-org leakage impossible
+  * Provider failure returns safe message — no internal error detail exposed to client
+  * Risk Level: Low
+* **Status:** ✅ Completed
+
+---
+
 ### Task 4.3 — Semantic Retrieval Engine
 
 * **Branch:** `feat/memory-engine-foundation`
