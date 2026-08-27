@@ -1,4 +1,4 @@
-from app.models.entity import Entity, EntityType, MemoryEntity
+from app.models.entity import Entity, EntityRelationship, EntityType, MemoryEntity, RelationshipType
 from app.models.memory_entry import MemoryEntry, MemoryType
 from app.models.organization import Organization
 from app.models.organization_member import MemberRole, OrganizationMember
@@ -7,6 +7,7 @@ from app.models.user import User
 
 __all__ = [
     "Entity",
+    "EntityRelationship",
     "EntityType",
     "MemberRole",
     "MemoryEntity",
@@ -14,6 +15,7 @@ __all__ = [
     "MemoryType",
     "Organization",
     "OrganizationMember",
+    "RelationshipType",
     "Scenario",
     "User",
 ]

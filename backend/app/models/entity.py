@@ -8,6 +8,16 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
 
 
+class RelationshipType(str, enum.Enum):
+    REFERENCES = "REFERENCES"
+    IMPLEMENTS = "IMPLEMENTS"
+    FIXES = "FIXES"
+    DEPENDS_ON = "DEPENDS_ON"
+    REVIEWED_BY = "REVIEWED_BY"
+    RELATED_TO = "RELATED_TO"
+    CAUSED_BY = "CAUSED_BY"
+
+
 class EntityType(str, enum.Enum):
     PERSON = "PERSON"
     REPOSITORY = "REPOSITORY"
@@ -114,4 +124,62 @@ class MemoryEntity(Base):
         return (
             f"<MemoryEntity memory={self.memory_entry_id} "
             f"entity={self.entity_id}>"
+        )
+
+
+class EntityRelationship(Base):
+    """A typed directed edge between two entities in the knowledge graph.
+
+    Both ``source_entity_id`` and ``target_entity_id`` must belong to the
+    same ``organization_id``.  The unique constraint on
+    (organization_id, source_entity_id, target_entity_id, relationship_type)
+    prevents duplicate edges of the same type between the same pair.
+    """
+
+    __tablename__ = "entity_relationships"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id",
+            "source_entity_id",
+            "target_entity_id",
+            "relationship_type",
+            name="uq_entity_relationships_org_src_tgt_type",
+        ),
+        Index("ix_entity_relationships_organization_id", "organization_id"),
+        Index("ix_entity_relationships_source_entity_id", "source_entity_id"),
+        Index("ix_entity_relationships_target_entity_id", "target_entity_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    source_entity_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    target_entity_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    relationship_type: Mapped[RelationshipType] = mapped_column(
+        Enum(RelationshipType, name="relationshiptype"),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=text("now()"),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<EntityRelationship id={self.id} "
+            f"{self.source_entity_id!r} -{self.relationship_type.value}-> "
+            f"{self.target_entity_id!r}>"
         )
