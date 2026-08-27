@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1.auth import router as auth_router
 from app.api.v1.chat import router as chat_router
+from app.api.v1.entities import router as entities_router
 from app.api.v1.health import router as health_router
 from app.api.v1.members import router as members_router
 from app.api.v1.memory_entries import router as memory_entries_router
@@ -19,3 +20,4 @@ api_router.include_router(members_router, prefix="/members", tags=["Members"])
 api_router.include_router(scenarios_router, prefix="/scenarios", tags=["Scenarios"])
 api_router.include_router(memory_entries_router, prefix="/memory", tags=["Memory"])
 api_router.include_router(chat_router, prefix="/chat", tags=["Chat"])
+api_router.include_router(entities_router, prefix="/entities", tags=["Entities"])
