@@ -46,6 +46,21 @@ config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 # Target metadata for autogenerate support.
 target_metadata = Base.metadata
 
+# ---------------------------------------------------------------------------
+# Autogenerate exclusions — indexes created via raw SQL in older migrations
+# that Alembic cannot track through metadata inspection.
+# ---------------------------------------------------------------------------
+_EXCLUDED_INDEXES = frozenset({
+    "ix_memory_entries_embedding_hnsw",  # created by 581c2cdd5ce2 via op.execute()
+})
+
+
+def include_object(obj, name, type_, reflected, compare_to):
+    """Prevent autogenerate from touching raw-SQL-managed objects."""
+    if type_ == "index" and name in _EXCLUDED_INDEXES:
+        return False
+    return True
+
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
@@ -59,6 +74,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -81,6 +97,7 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
+            include_object=include_object,
         )
 
         with context.begin_transaction():

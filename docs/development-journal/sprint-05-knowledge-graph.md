@@ -108,3 +108,53 @@ Append one concise entry after each completed milestone including objective, fil
 - HNSW index autogenerate artefact removed again — permanent fix should be added to `env.py` exclude list in a future migration housekeeping task
 
 **Status:** ✅ Complete
+
+---
+
+### Milestone 5.3 — Automatic Memory Linking Engine
+
+**Branch:** `feat/knowledge-graph-intelligence`
+
+**Objective:** Automatically infer scored relationships between MemoryEntry records using shared entities, shared scenarios, and semantic similarity — preparing TeamMemoryOS for GraphRAG.
+
+**Problem:** Memory entries were isolated records with no programmatic connections. Future hybrid retrieval requires knowing which memories are related and why, without relying on an LLM at link-generation time.
+
+**Solution:** Introduced a `MemoryLink` model with a multi-signal scoring engine (`calculate_link_score`) combining Jaccard entity overlap (0.5), same-scenario flag (0.3), and cosine embedding similarity (0.2). The `generate_memory_links` service is fully deterministic, idempotent, and produces labelled, scored links. Also permanently fixed the recurring HNSW autogenerate ghost by adding an `include_object` exclusion filter to `alembic/env.py`.
+
+**Files Changed:**
+- `backend/app/models/memory_link.py` — `MemoryLinkType` enum (4 types), `MemoryLink` model
+- `backend/app/models/__init__.py` — exported `MemoryLink`, `MemoryLinkType`
+- `backend/app/schemas/memory_link.py` — `MemoryLinkCreate` (with self-link validator), `MemoryLinkRead`, `GenerateLinksRequest`, `GenerateLinksResponse`
+- `backend/app/services/memory_link.py` — `create_memory_link`, `get_memory_links`, `generate_memory_links`, `calculate_link_score`, `_cosine_similarity`
+- `backend/app/api/v1/memory_links.py` — 3 authenticated endpoints under `/memory-links`
+- `backend/app/api/router.py` — registered memory_links router
+- `backend/alembic/env.py` — added `include_object` filter to permanently exclude HNSW index from autogenerate
+- `backend/alembic/versions/0317f82c2c0b_add_memory_links_table.py` — migration
+- `backend/tests/test_memory_links.py` — 28 tests
+- `.gitignore` — comprehensively hardened: credentials, env files, secrets, IDE artefacts, OS files, build outputs
+
+**Validation:**
+- `alembic upgrade head` applied cleanly
+- `alembic check` → "No new upgrade operations detected" (HNSW exclusion verified)
+- All imports resolved; scoring logic verified in Python REPL
+- `pytest tests/test_memory_links.py` — **28/28 passed**
+- Full suite — **201/202 passed** (same pre-existing pagination flake in `test_users.py`)
+
+**Security Review:**
+- UUID primary key on `memory_links`
+- `organization_id` FK with CASCADE delete enforces tenant isolation
+- `UniqueConstraint(org, src, tgt, type)` prevents duplicate links
+- Self-link validation at Pydantic schema and service layers
+- All endpoints require `get_current_user` JWT auth
+- `get_memory_links` and `list_neighbors` require `organization_id` query param — cross-org memory IDs return empty
+- Score clamped to [0.0, 1.0] at write time
+- ORM-only queries — no raw SQL
+
+**Engineering Decisions:**
+- Three-signal weighted scoring: entity Jaccard (0.5) + scenario flag (0.3) + cosine sim (0.2)
+- When embeddings are absent, semantic weight redistributed proportionally to remaining signals so scores stay in [0, 1] without a cliff
+- `generate_memory_links` is idempotent — duplicate `IntegrityError` is caught and counted as `links_skipped`, not raised
+- Response links sorted by score descending for immediate usability
+- HNSW index now permanently excluded from Alembic autogenerate via `include_object` hook in `alembic/env.py`
+
+**Status:** ✅ Complete
