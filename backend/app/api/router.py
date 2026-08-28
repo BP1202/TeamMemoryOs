@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.api.v1.agents import router as agents_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.chat import router as chat_router
 from app.api.v1.code_search import router as code_search_router
@@ -38,3 +39,5 @@ api_router.include_router(pull_request_router, prefix="/git", tags=["PullRequest
 api_router.include_router(terminal_router, prefix="/terminal", tags=["Terminal"])
 api_router.include_router(code_search_router, prefix="/code", tags=["CodeSearch"])
 api_router.include_router(engineering_router, prefix="/engineering", tags=["Engineering"])
+# Sprint 7 — Multi-Agent Intelligence Platform
+api_router.include_router(agents_router, prefix="/agents", tags=["Agents"])
