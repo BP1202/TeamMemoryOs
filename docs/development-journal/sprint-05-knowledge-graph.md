@@ -202,3 +202,62 @@ Append one concise entry after each completed milestone including objective, fil
 - `retrieval_mode` field added to both `ChatResponse` dataclass and `ChatAskResponse` schema for client-side transparency
 
 **Status:** ✅ Complete
+
+---
+
+### Milestone 5.5 — Explainable Retrieval Engine
+
+**Branch:** `feat/knowledge-graph-intelligence`
+
+**Objective:** Build the Explainable Retrieval layer so every hybrid AI answer includes transparent retrieval reasoning, entity graph paths, structured citations, and a confidence score — all derived deterministically from retrieval metadata without any LLM.
+
+**Problem:** The HybridRetriever from Milestone 5.4 returned ranked results but gave no explanation of *why* a memory was retrieved, what graph path connected results, or how confident the overall retrieval was. AI answers lacked auditability.
+
+**Solution:** Built `explanation_builder.py` with three core functions: `aggregate_confidence` (rank-decay weighted score), `build_graph_path` (direct entity edge lookup between top result entity sets), and `build_retrieval_explanation` (assembles the full `RetrievalExplanation` with citations, graph path, confidence, and summary). Integrated explanation generation into `run_rag` (hybrid mode only), extended `ChatAskResponse` with a nullable `explanation` field, and exposed a standalone `POST /retrieval/explain` endpoint that returns explanations without Granite inference.
+
+**Files Changed:**
+- `backend/app/graph/explanation_builder.py` — `aggregate_confidence`, `build_graph_path`, `build_retrieval_explanation`, `Citation`, `GraphPathStep`, `RetrievalExplanation` dataclasses
+- `backend/app/schemas/retrieval.py` — `CitationRead`, `GraphPathStepRead`, `RetrievalExplanationRead`, `ExplainRequest`, `ExplainResponse`
+- `backend/app/schemas/chat.py` — added nullable `explanation: RetrievalExplanationRead | None` to `ChatAskResponse`
+- `backend/app/memory/rag_generation.py` — `explanation` field on `ChatResponse`, `build_retrieval_explanation` called in hybrid branch of `run_rag`
+- `backend/app/api/v1/chat.py` — `_serialize_explanation()` helper, passes explanation through to `ChatAskResponse`
+- `backend/app/api/v1/retrieval.py` — added `POST /explain` endpoint
+- `backend/tests/test_explainability.py` — 35 tests
+
+**Validation:**
+- All imports resolved; app startup clean
+- `pytest tests/test_explainability.py` — **35/35 passed**
+- Full suite — **266/267 passed** (same pre-existing pagination flake in `test_users.py`)
+
+**Security Review:**
+- All endpoints require `get_current_user` JWT auth
+- `build_graph_path` and `build_retrieval_explanation` scope all DB queries to `organization_id` — no cross-org data leakage via entity names or relationship lookups
+- `explanation` is `None` in semantic mode — no unnecessary processing or data exposure
+- No LLM call in `/explain` — purely deterministic, no prompt injection surface
+- Confidence and all scores clamped to `[0.0, 1.0]`
+
+**Engineering Decisions:**
+- `aggregate_confidence` uses rank-decay weighting (weight = 1/rank) so the top result has 2× influence of second, 3× of third — rewards retrievals where the primary hit is strong
+- `build_graph_path` returns only direct (1-hop) edges between the top-two results' entity sets — multi-hop BFS is reserved for a future milestone
+- `explanation` is `None` in semantic mode to avoid unnecessary graph queries and keep the semantic path lightweight
+- `_serialize_explanation()` in `chat.py` converts internal dataclasses to Pydantic schemas at the API boundary — keeps business logic free of Pydantic dependencies
+- Backward compat preserved: `explanation` defaults to `None`; all 35 existing chat tests pass unchanged
+
+**Status:** ✅ Complete
+
+---
+
+## Sprint 5 Complete
+
+All five milestones delivered on `feat/knowledge-graph-intelligence`:
+
+| Milestone | Description | Tests |
+|---|---|---|
+| 5.1 | Entity Extraction Foundation | 39 |
+| 5.2 | Knowledge Graph Relationship Engine | 25 |
+| 5.3 | Automatic Memory Linking Engine | 28 |
+| 5.4 | Hybrid Retrieval Engine (GraphRAG Foundation) | 30 |
+| 5.5 | Explainable Retrieval Engine | 35 |
+| **Total** | | **157 new tests** |
+
+Full suite: **266/267 pass** (1 pre-existing Sprint 4 pagination flake in `test_users.py`).
