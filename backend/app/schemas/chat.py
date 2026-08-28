@@ -3,6 +3,8 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
+from app.schemas.retrieval import RetrievalExplanationRead
+
 
 class ChatAskRequest(BaseModel):
     """Request body for POST /api/v1/chat/ask."""
@@ -28,3 +30,4 @@ class ChatAskResponse(BaseModel):
     retrieved_memory_count: int
     provider_used: str
     retrieval_mode: str = "semantic"
+    explanation: RetrievalExplanationRead | None = None

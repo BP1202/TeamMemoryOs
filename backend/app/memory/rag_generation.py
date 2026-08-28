@@ -18,12 +18,14 @@ No LangChain.  Each step is a direct function call.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from app.core.settings import settings
-from app.graph.hybrid_retriever import HybridRetriever
+from app.graph.explanation_builder import RetrievalExplanation, build_retrieval_explanation
+from app.graph.hybrid_retriever import HybridResult, HybridRetriever
 from app.memory.embedding_provider import EmbeddingProvider, StubEmbeddingProvider
 from app.memory.generation_provider import GenerationProvider, get_generation_provider
 from app.memory.prompt_builder import build_prompt
@@ -41,6 +43,8 @@ class ChatResponse:
         retrieved_memory_count: Number of memory entries that were retrieved.
         provider_used:          Identifier of the generation provider that ran.
         retrieval_mode:         'semantic' or 'hybrid'.
+        explanation:            Full retrieval explanation (populated when
+                                use_hybrid=True, else None).
     """
 
     answer: str
@@ -48,6 +52,7 @@ class ChatResponse:
     retrieved_memory_count: int = 0
     provider_used: str = "unknown"
     retrieval_mode: str = "semantic"
+    explanation: RetrievalExplanation | None = None
 
 
 def run_rag(
@@ -81,6 +86,7 @@ def run_rag(
     # 1 + 2: Retrieve top-k memories and build context block              #
     # ------------------------------------------------------------------ #
     retrieval_mode = "semantic"
+    hybrid_results: list[HybridResult] = []
     if use_hybrid:
         retrieval_mode = "hybrid"
         retriever = HybridRetriever(
@@ -131,12 +137,24 @@ def run_rag(
     # ------------------------------------------------------------------ #
     citations = _build_citation_strings(retrieved_entries)
 
+    # Build explanation only in hybrid mode (requires graph queries)
+    explanation: RetrievalExplanation | None = None
+    if use_hybrid and hybrid_results:
+        explanation = build_retrieval_explanation(
+            question=question,
+            hybrid_results=hybrid_results,
+            db=db,
+            organization_id=organization_id,
+            retrieval_mode=retrieval_mode,
+        )
+
     return ChatResponse(
         answer=answer,
         citations=citations,
         retrieved_memory_count=len(retrieved_entries),
         provider_used=gen_provider.provider_name,
         retrieval_mode=retrieval_mode,
+        explanation=explanation,
     )
 
 
