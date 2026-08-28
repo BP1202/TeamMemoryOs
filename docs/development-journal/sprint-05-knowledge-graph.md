@@ -158,3 +158,47 @@ Append one concise entry after each completed milestone including objective, fil
 - HNSW index now permanently excluded from Alembic autogenerate via `include_object` hook in `alembic/env.py`
 
 **Status:** ✅ Complete
+
+---
+
+### Milestone 5.4 — Hybrid Retrieval Engine (GraphRAG Foundation)
+
+**Branch:** `feat/knowledge-graph-intelligence`
+
+**Objective:** Build a deterministic hybrid retrieval engine combining semantic search, entity graph expansion, and memory-link scoring into one explainable pipeline — the GraphRAG foundation for TeamMemoryOS.
+
+**Problem:** The existing RAG pipeline used semantic-only retrieval, missing related memories that are only discoverable through the entity graph (e.g. a memory about an incident that shares no lexical similarity with the query but is connected through an entity relationship chain).
+
+**Solution:** Built a five-stage `HybridRetriever` in `app/graph/` that: (1) retrieves semantic seeds via pgvector, (2) expands their entity sets, (3) walks one graph hop via `EntityRelationship`, (4) surfaces link targets from `MemoryLink`, then (5) merges and ranks all candidates with a weighted score (semantic 0.5, memory-link 0.3, graph 0.2). Integrated into `/chat/ask` as opt-in `use_hybrid=True` and exposed directly via a new `/retrieval/hybrid-search` endpoint with full explainability metadata.
+
+**Files Changed:**
+- `backend/app/graph/__init__.py` — new `graph` package
+- `backend/app/graph/hybrid_retriever.py` — `HybridRetriever`, `HybridResult`, `_weighted_score`, `_cosine_distance`
+- `backend/app/schemas/retrieval.py` — `HybridSearchRequest`, `HybridResultRead`, `HybridSearchResponse`, `GraphStats`
+- `backend/app/api/v1/retrieval.py` — `POST /retrieval/hybrid-search`
+- `backend/app/api/router.py` — registered retrieval router
+- `backend/app/schemas/chat.py` — added `use_hybrid` flag, `retrieval_mode` response field
+- `backend/app/memory/rag_generation.py` — hybrid branch in `run_rag`, `retrieval_mode` in `ChatResponse`
+- `backend/app/api/v1/chat.py` — passes `use_hybrid` through; returns `retrieval_mode`
+- `backend/tests/test_hybrid_retrieval.py` — 30 tests
+
+**Validation:**
+- All imports resolved; app startup clean
+- `pytest tests/test_hybrid_retrieval.py` — **30/30 passed**
+- Full suite — **231/232 passed** (same pre-existing pagination flake in `test_users.py`)
+
+**Security Review:**
+- All endpoints require `get_current_user` JWT auth
+- Organisation isolation enforced at every DB query in `HybridRetriever` (org filter on entity expansion, graph traversal, memory link lookup, and final candidate load)
+- No raw SQL — all ORM queries
+- `_load_memories` applies `organization_id` filter so cross-org memory IDs passed via graph expansion cannot leak data
+- Score always clamped to [0.0, 1.0]
+
+**Engineering Decisions:**
+- `HybridRetriever` constructor accepts an `EmbeddingProvider` override for testability — no network dependency in tests (StubEmbeddingProvider used throughout)
+- Interface designed for future LangChain compatibility: single `retrieve(question: str) → list[HybridResult]` entry point
+- `seed_multiplier=3` fetches `top_k * 3` semantic seeds before graph expansion, giving the graph a wide enough base to surface distant candidates
+- Chat `/ask` remains backward-compatible: `use_hybrid` defaults to `False`; existing tests pass unchanged
+- `retrieval_mode` field added to both `ChatResponse` dataclass and `ChatAskResponse` schema for client-side transparency
+
+**Status:** ✅ Complete

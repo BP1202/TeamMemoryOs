@@ -9,6 +9,7 @@ from app.api.v1.memory_entries import router as memory_entries_router
 from app.api.v1.memory_links import router as memory_links_router
 from app.api.v1.organizations import router as organizations_router
 from app.api.v1.relationships import router as relationships_router
+from app.api.v1.retrieval import router as retrieval_router
 from app.api.v1.scenarios import router as scenarios_router
 from app.api.v1.users import router as users_router
 
@@ -25,3 +26,4 @@ api_router.include_router(chat_router, prefix="/chat", tags=["Chat"])
 api_router.include_router(entities_router, prefix="/entities", tags=["Entities"])
 api_router.include_router(relationships_router, prefix="/relationships", tags=["Relationships"])
 api_router.include_router(memory_links_router, prefix="/memory-links", tags=["MemoryLinks"])
+api_router.include_router(retrieval_router, prefix="/retrieval", tags=["Retrieval"])

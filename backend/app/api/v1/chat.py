@@ -37,10 +37,12 @@ def ask(
         organization_id=body.organization_id,
         top_k=body.top_k,
         scenario_id=body.scenario_id,
+        use_hybrid=body.use_hybrid,
     )
     return ChatAskResponse(
         answer=result.answer,
         citations=result.citations,
         retrieved_memory_count=result.retrieved_memory_count,
         provider_used=result.provider_used,
+        retrieval_mode=result.retrieval_mode,
     )
