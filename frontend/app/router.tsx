@@ -2,11 +2,18 @@
  * Application router.
  * All feature routes are lazy-loaded.
  * AuthGuard wraps all workspace routes.
+ * ErrorBoundary wraps all route trees.
+ * CommandPalette is mounted globally in the workspace shell.
  */
 
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+} from 'react-router-dom';
 
 import { AuthGuard } from './AuthGuard';
 import { WorkspaceLayout } from '@layouts/WorkspaceLayout';
@@ -15,6 +22,8 @@ import { RootLayout } from '@layouts/RootLayout';
 import { ErrorLayout } from '@layouts/ErrorLayout';
 import { ApiInterceptorBootstrap } from '@providers/ApiInterceptorBootstrap';
 import { LoadingState } from '@components/feedback/LoadingState';
+import { ErrorBoundary } from '@components/feedback/ErrorBoundary';
+import { CommandPalette } from '@components/CommandPalette';
 
 // ─── Lazy-loaded routes ───────────────────────────────────────────────────
 
@@ -38,13 +47,18 @@ function InnerRouter() {
 
   return (
     <ApiInterceptorBootstrap navigate={navigate}>
+      {/* CommandPalette mounted at root — available on all authenticated pages */}
+      <CommandPalette />
+
       <Routes>
         <Route element={<RootLayout />} errorElement={<ErrorLayout />}>
           {/* Authenticated workspace */}
           <Route
             element={
               <AuthGuard>
-                <WorkspaceLayout />
+                <ErrorBoundary>
+                  <WorkspaceLayout />
+                </ErrorBoundary>
               </AuthGuard>
             }
           >
@@ -82,7 +96,9 @@ function InnerRouter() {
 
 export function AppRouter() {
   return (
-    <BrowserRouter>
+    <BrowserRouter
+      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+    >
       <InnerRouter />
     </BrowserRouter>
   );

@@ -58,3 +58,24 @@ export interface ExplainabilityPayload {
   graph_path: string[];
   participating_agents: string[];
 }
+
+// ─── Health ───────────────────────────────────────────────────────────────
+
+export interface HealthResponse {
+  status: 'healthy' | 'unhealthy';
+  service: string;
+  version: string;
+}
+
+export interface DbHealthResponse {
+  status: 'healthy' | 'unhealthy';
+  database: string;
+}
+
+// ─── Dashboard counts ─────────────────────────────────────────────────────
+
+export interface DashboardStats {
+  memoryCount: number;
+  scenarioCount: number;
+  agentCount: number;
+}

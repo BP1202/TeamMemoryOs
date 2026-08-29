@@ -17,10 +17,9 @@ function setup(isAuthenticated: boolean) {
       id: 'u1',
       email: 'test@example.com',
       full_name: 'Test User',
-      role: 'member',
-      organization_id: 'org-1',
       is_active: true,
       created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z',
     });
   } else {
     store.clearAuth();

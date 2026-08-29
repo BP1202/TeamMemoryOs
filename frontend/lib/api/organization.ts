@@ -1,7 +1,8 @@
 /**
  * Organization ID request interceptor.
- * Injects X-Organization-ID from the auth store into every outgoing request.
- * Never reads org_id from URL parameters.
+ * The backend does not require X-Organization-ID in Sprint 8.1 —
+ * organization scope is resolved from the JWT token server-side.
+ * This file is a no-op stub kept for future multi-org support.
  */
 
 import { apiClient } from './client';

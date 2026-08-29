@@ -1,13 +1,12 @@
 /**
  * Auth interceptor bootstrapper.
  * Registers the Axios interceptors once when the app mounts.
- * Must be a child of the auth store (Zustand hydration happens synchronously).
+ * Must be inside Router context (uses `navigate` for 401 redirect).
  */
 
 import { useEffect, type ReactNode } from 'react';
 import { useAuthStore } from '@stores/authStore';
 import { registerAuthInterceptor } from '@lib/api/auth';
-import { registerOrganizationInterceptor } from '@lib/api/organization';
 import { registerErrorInterceptor } from '@lib/api/errors';
 
 let interceptorsRegistered = false;
@@ -25,9 +24,6 @@ export function ApiInterceptorBootstrap({ children, navigate }: Props) {
     interceptorsRegistered = true;
 
     registerAuthInterceptor(() => useAuthStore.getState().token);
-    registerOrganizationInterceptor(
-      () => useAuthStore.getState().organization_id,
-    );
     registerErrorInterceptor(clearAuth, navigate);
   }, [clearAuth, navigate]);
 

@@ -14,6 +14,7 @@ import { NavIcons, UtilityIcons, iconSize } from '@config/icons';
 import { primaryNav, bottomNav } from '@config/navigation';
 import { useUIStore } from '@stores/uiStore';
 import { useAuthStore } from '@stores/authStore';
+import { useLogout } from '@hooks/useLogout';
 import { APP_NAME } from '@config/constants';
 import { cn } from '@utils/cn';
 import type { NavItem } from '@typedefs/ui';
@@ -67,10 +68,10 @@ function SidebarNavItem({ item, collapsed }: NavItemProps) {
 // ─── Sidebar ──────────────────────────────────────────────────────────────
 
 export function Sidebar() {
-  const collapsed   = useUIStore((s) => s.sidebarCollapsed);
-  const toggle      = useUIStore((s) => s.toggleSidebar);
-  const user        = useAuthStore((s) => s.user);
-  const clearAuth   = useAuthStore((s) => s.clearAuth);
+  const collapsed      = useUIStore((s) => s.sidebarCollapsed);
+  const toggle         = useUIStore((s) => s.toggleSidebar);
+  const user           = useAuthStore((s) => s.user);
+  const logout         = useLogout();
   const prefersReduced = useReducedMotion();
 
   const width = collapsed ? 64 : 240;
@@ -125,7 +126,7 @@ export function Sidebar() {
 
         {user && (
           <button
-            onClick={clearAuth}
+            onClick={logout}
             className={cn(
               'flex items-center gap-3 w-full px-3 py-2 rounded-md',
               'text-sm font-medium text-text-muted hover:text-danger hover:bg-surface-subtle',
