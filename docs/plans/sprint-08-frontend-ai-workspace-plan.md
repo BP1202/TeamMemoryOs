@@ -1,63 +1,88 @@
 # Sprint 8 — Frontend AI Workspace: Final Implementation Blueprint
 
+> **Status:** Architecture Frozen. This document is the official Sprint 8 implementation blueprint.
+> Do not modify architecture without a recorded decision. Append implementation notes at the bottom of each milestone section.
+
+---
+
 ## Overview
 
-Sprint 8 builds the TeamMemoryOS web frontend from scratch using React 18, TypeScript, Vite, Tailwind CSS, Shadcn UI, React Query, Zustand, React Router v6, React Hook Form, React Flow, and Framer Motion. The frontend surfaces all backend capabilities built in Sprints 1–7 — organizational memory, hybrid GraphRAG retrieval, the knowledge graph, the AI engineering copilot, and the multi-agent platform — as a premium desktop-first AI Operating System interface.
+Sprint 8 builds the TeamMemoryOS web frontend from scratch using React 18, TypeScript, Vite, Tailwind CSS, Shadcn UI, React Query v5, Zustand v4, React Router v6, React Hook Form v7, React Flow, and Framer Motion. The frontend surfaces all backend capabilities from Sprints 1–7 as a premium desktop-first AI Operating System interface.
 
-The frontend folder already exists at `frontend/` with empty subdirectories. No React app scaffolding exists yet. Every milestone in this sprint builds on top of prior milestones in strict dependency order.
-
-This document is the **official implementation blueprint**. Every milestone section includes: Goal, Features, Backend APIs, React Components, Folder Additions, State Management, Accessibility, Security, Testing, Performance, and Validation Checklist.
+The `frontend/` folder exists with empty subdirectories. No React scaffolding has been written yet. Every milestone builds on prior milestones in strict dependency order.
 
 ---
 
 ## Milestone Order
 
 ```
-8.0 Frontend Foundation      ← Blocks everything. Build once, reuse everywhere.
+8.0 Frontend Foundation           ← Infrastructure. Blocks everything.
   ↓
-8.1 Authentication & Dashboard   ← Auth shell + live dashboard widgets.
+8.1 Authentication & Dashboard    ← Auth shell + live dashboard widgets.
   ↓
-8.2 Memory Workspace         ← Memory CRUD, search, scenarios.
+8.2 Memory Workspace              ← Memory CRUD, search, scenarios.
   ↓ (parallel opportunity)
-8.3 Knowledge Graph          ← Entity/relationship graph. Parallel with 8.2.
+8.3 Knowledge Graph               ← Entity/relationship graph. Parallel with 8.2.
   ↓
-8.4 AI Chat & Explainability ← RAG chat, citations, graph path, confidence.
+8.4 AI Chat & Explainability      ← RAG chat, explainability, Engineering Copilot.
   ↓
-8.5 Multi-Agent Workspace    ← Agent registry, workflow runner, debug/repo panels.
+8.5 Multi-Agent Workspace         ← Agent registry, workflow timeline, debug/repo panels.
   ↓
-8.6 Final Integration & QA   ← E2E validation, accessibility audit, performance pass.
+8.6 Final Integration & QA        ← E2E audit, accessibility, performance, release.
 ```
+
+**Strict sequential chain:** `8.0 → 8.1 → 8.2 → 8.4 → 8.5 → 8.6`
+**Parallel opportunity:** `8.2 ‖ 8.3` (no inter-dependency after 8.1)
 
 ---
 
-## Folder Structure
+## Enterprise Folder Structure
 
-The following folder structure is the canonical enterprise-grade layout for this project. Every developer must respect folder responsibilities.
+This is the frozen canonical folder layout. Every developer and every Bob agent must respect folder responsibilities.
 
 ```
 frontend/
-  app/                ← React Router route tree only. No business logic here.
-    index.tsx         ← Router root, QueryClientProvider, global providers
-    routes.tsx        ← Centralized route definitions with lazy() wrappers
-  layouts/            ← Full-page layout wrappers (AppShell, AuthLayout)
-    AppShell.tsx
-    AuthLayout.tsx
-  components/         ← Reusable design system primitives. NO feature logic.
-    ui/               ← Shadcn-based design system components
-    auth/             ← AuthGuard, ProtectedRoute
-    feedback/         ← LoadingState, EmptyState, ErrorState, Skeleton, Spinner
-    graph/            ← Shared React Flow node/edge primitives
-  features/           ← Feature modules. Each feature is self-contained.
-    auth/             ← LoginPage, useLogin hook
-    dashboard/        ← DashboardPage, widgets
-    memory/           ← MemoryPage, MemoryTable, CreateMemoryDialog
-    scenarios/        ← ScenarioList, CreateScenarioDialog
-    graph/            ← KnowledgeGraphPage, GraphCanvas, EntityDetailPanel
-    chat/             ← ChatPage, ChatMessageList, CitationPanel, ConfidenceBadge
-    retrieval/        ← RetrievalExplainPage, RetrievalResultCard
-    engineering/      ← EngineeringCopilotPage, DebugPanel, PRReviewPanel
-    agents/           ← AgentsPage, AgentCard, WorkflowRunPanel, DebugAgentPanel
-  services/           ← All API calls. One function per endpoint. Typed I/O.
+  app/                  ← React Router route tree only. No business logic.
+    index.tsx           ← Router root, lazy route registry
+    routes.tsx          ← Route definitions with React.lazy() wrappers
+
+  providers/            ← Global React context providers. Initialization only.
+    ThemeProvider.tsx
+    QueryProvider.tsx
+    AuthProvider.tsx
+    TooltipProvider.tsx
+    MotionProvider.tsx
+    index.tsx           ← Ordered provider composition
+
+  layouts/              ← Full-page structural wrappers. One per surface.
+    RootLayout.tsx      ← Root error boundary + top-level Suspense
+    WorkspaceLayout.tsx ← Authenticated shell: Sidebar + Topbar + content
+    AuthLayout.tsx      ← Unauthenticated surface: centered card layout
+    ErrorLayout.tsx     ← Unrecoverable error surface (boundary fallback)
+    SettingsLayout.tsx  ← Settings panel layout (future)
+
+  config/               ← Static application configuration. No runtime logic.
+    navigation.ts       ← Single source of truth: nav items, icons, routes, permissions
+    theme.ts            ← Design token exports for JS consumers
+    constants.ts        ← App-wide constants (pagination defaults, debounce ms)
+
+  components/           ← Reusable design system primitives only.
+    ui/                 ← Shadcn-based components with project token overrides
+    feedback/           ← LoadingState, EmptyState, ErrorState, Skeleton, Spinner
+
+  features/             ← Self-contained feature modules. One directory per domain.
+    auth/               ← LoginPage, useLogin
+    dashboard/          ← DashboardPage, widgets
+    memory/             ← MemoryPage, MemoryTable, CreateMemoryDialog
+    scenarios/          ← ScenarioList, CreateScenarioDialog
+    graph/              ← KnowledgeGraphPage, GraphCanvas, inspectors
+    chat/               ← ChatPage, ChatMessageList, ChatInput
+    retrieval/          ← RetrievalExplainPage, RetrievalResultCard
+    engineering/        ← EngineeringCopilotPage, DebugPanel, PRReviewPanel
+    agents/             ← AgentsPage, WorkflowTimeline, RepositoryAgentPanel
+    explainability/     ← ALL shared AI explainability components (see §5)
+
+  services/             ← All API calls. One exported function per endpoint.
     authService.ts
     healthService.ts
     memoryService.ts
@@ -68,34 +93,44 @@ frontend/
     retrievalService.ts
     engineeringService.ts
     agentsService.ts
-    gitService.ts
     usersService.ts
-  hooks/              ← Reusable custom hooks (not feature-specific).
-    useAuth.ts
-    usePagination.ts
-    useDebounce.ts
-    useOrganization.ts
-  stores/             ← Zustand stores. Client UI state only. No server data.
+
+  stores/               ← Zustand stores. Client UI state only. Never server data.
     authStore.ts
     uiStore.ts
     workspaceStore.ts
     graphStore.ts
     chatStore.ts
     agentStore.ts
-  lib/                ← Low-level utilities and configuration.
-    api.ts            ← Single Axios instance with interceptors
-    queryClient.ts    ← React Query client configuration
-    cn.ts             ← Tailwind class merge utility
-  utils/              ← Pure functions. No React. No side effects.
+
+  hooks/                ← Reusable custom hooks shared across features.
+    useAuth.ts
+    usePagination.ts
+    useDebounce.ts
+    useOrganization.ts
+
+  lib/                  ← Low-level configuration instances.
+    api/
+      client.ts         ← Single Axios instance
+      interceptors.ts   ← Request + response interceptor registration
+      auth.ts           ← JWT injection logic
+      organization.ts   ← X-Organization-ID injection logic
+      errors.ts         ← Error normalization → ApiError
+    queryClient.ts      ← React Query client with global defaults
+
+  utils/                ← Pure functions. No React. No side effects.
     formatDate.ts
     truncate.ts
     colorFromType.ts
     scoreToLabel.ts
-  styles/             ← Global CSS and design tokens.
+    cn.ts               ← Tailwind class merge utility
+
+  styles/               ← Global CSS and design tokens.
     globals.css
-    tokens.css
-  types/              ← Shared TypeScript interfaces. Mirror backend schemas.
-    api.ts            ← Base types: ApiError, PaginatedResponse
+    tokens.css          ← CSS custom property design token definitions
+
+  types/                ← Shared TypeScript interfaces mirroring backend schemas.
+    api.ts              ← ApiError, PaginatedResponse, base types
     auth.ts
     memory.ts
     scenario.ts
@@ -105,7 +140,8 @@ frontend/
     retrieval.ts
     engineering.ts
     agents.ts
-  assets/             ← Static assets: logos, icons, images.
+
+  assets/               ← Static assets: logos, icons, images.
   index.html
   main.tsx
   vite.config.ts
@@ -115,293 +151,349 @@ frontend/
   .env.example
 ```
 
-### Folder Responsibility Rules
+### Folder Responsibility Table
 
 | Folder | Owns | Never contains |
 |---|---|---|
-| `app/` | Route definitions, providers | Business logic, API calls |
-| `layouts/` | Full-page structural wrappers | Feature logic |
-| `components/` | Design system primitives | API calls, business state |
-| `features/` | Feature pages + feature-local components | Direct `fetch()` or `axios` calls |
-| `services/` | One function per API endpoint | React components, hooks |
-| `hooks/` | Reusable hook logic | Component JSX |
-| `stores/` | Client-only UI state | Server response data |
-| `lib/` | Config instances (axios, queryClient) | Feature logic |
-| `utils/` | Pure helper functions | React, side effects |
-| `types/` | TypeScript interface definitions | Runtime logic |
+| `app/` | Route definitions + lazy imports | Business logic, API calls, state |
+| `providers/` | Provider initialization + composition order | Feature logic, UI rendering |
+| `layouts/` | Structural page wrappers, slot areas | Feature data, API calls |
+| `config/` | Static configuration objects | Runtime logic, React components |
+| `components/ui/` | Design system primitives | API calls, business logic, store reads |
+| `components/feedback/` | Loading, empty, error, skeleton states | Feature-specific content |
+| `features/` | Feature pages + feature-local components | Direct `fetch()` / `axios` / `useAxios` |
+| `features/explainability/` | AI explainability display components | Chat logic, agent orchestration |
+| `services/` | One typed function per API endpoint | React components, hooks, stores |
+| `stores/` | Client UI state + session state | Server response lists, loading flags |
+| `hooks/` | Reusable hook logic shared across features | Component JSX |
+| `lib/api/` | Axios client + interceptor modules | Feature logic, store reads |
+| `utils/` | Pure helper functions | React, side effects, imports |
+| `types/` | TypeScript interface definitions | Runtime logic, default values |
+
+---
+
+## Providers Architecture
+
+Providers are initialized in `providers/index.tsx` in a strict composition order. Order matters — each provider may depend on those above it.
+
+```
+1. ThemeProvider    ← CSS variable application; no dependencies
+2. MotionProvider   ← Framer Motion reduced-motion detection; no dependencies
+3. TooltipProvider  ← Radix tooltip root; no dependencies
+4. QueryProvider    ← React Query client; no dependencies
+5. AuthProvider     ← Reads authStore; must be inside QueryProvider for prefetch
+```
+
+**Rules:**
+- No provider reads from another provider's context.
+- Providers do not render any UI — they only inject context.
+- `AuthProvider` handles session restore from localStorage on mount and triggers post-login prefetch. It is not responsible for redirect logic — that belongs in `AuthGuard`.
+- The composition entry point is `providers/index.tsx`, exported as `<AppProviders>`, mounted once in `main.tsx`.
+
+---
+
+## Layout Architecture
+
+Five layouts cover every surface in the application.
+
+| Layout | Route surface | Owns | Notes |
+|---|---|---|---|
+| `RootLayout` | All routes | Root `<ErrorBoundary>`, global `<Suspense>` fallback | Renders `<Outlet>` |
+| `WorkspaceLayout` | All authenticated routes | `Sidebar`, `Topbar`, main content slot | Requires auth |
+| `AuthLayout` | `/login` | Centered card container | No auth required |
+| `ErrorLayout` | Error boundary fallback | Full-screen error message + retry | Used by `RootLayout` on uncaught error |
+| `SettingsLayout` | `/settings/*` (future) | Split-panel settings shell | Planned, not in Sprint 8 scope |
+
+`WorkspaceLayout` renders `Sidebar` and `Topbar`. It does **not** own navigation data — navigation items are read from `config/navigation.ts`.
+
+---
+
+## Navigation Configuration
+
+`config/navigation.ts` is the single source of truth for all navigation concerns. It exports a typed `NavItem[]` array used by:
+
+- `Sidebar` — renders nav items with icons and active state
+- `Topbar` — renders breadcrumbs
+- `WorkspaceLayout` — derives route-level permissions
+- Future command palette — searches nav items by label
+
+Each `NavItem` has the shape:
+
+```typescript
+interface NavItem {
+  label: string;
+  path: string;
+  icon: LucideIcon;
+  section: 'primary' | 'tools' | 'admin';
+  requiredPermission?: string;   // future role-based gating
+  badge?: string;                // future notification count
+}
+```
+
+Navigation items are **never** hardcoded inside `Sidebar.tsx`. All changes to the nav go through `config/navigation.ts`.
 
 ---
 
 ## Design System Architecture
 
-The design system is defined once in `components/ui/` and `styles/`. Every feature reuses these primitives. No feature may define its own color palette, spacing scale, or primitive components.
-
-### Color Palette
+### Color Palette (`styles/tokens.css`)
 
 ```css
-/* styles/tokens.css */
 :root {
-  /* Background layers */
-  --color-bg-base:        #0a0a0f;   /* Deepest canvas */
-  --color-bg-surface:     #111118;   /* Cards, panels */
-  --color-bg-elevated:    #1a1a24;   /* Dropdowns, dialogs */
-  --color-bg-subtle:      #22222f;   /* Hover states, row highlights */
+  /* Backgrounds */
+  --color-bg-base:       #0a0a0f;
+  --color-bg-surface:    #111118;
+  --color-bg-elevated:   #1a1a24;
+  --color-bg-subtle:     #22222f;
 
-  /* Brand */
-  --color-brand-primary:  #6366f1;   /* Indigo — primary actions */
-  --color-brand-hover:    #818cf8;   /* Indigo light — hover */
-  --color-brand-muted:    #312e81;   /* Indigo dark — muted bg */
+  /* Brand — Indigo */
+  --color-brand:         #6366f1;
+  --color-brand-hover:   #818cf8;
+  --color-brand-muted:   #312e81;
 
   /* Semantic */
-  --color-success:        #22c55e;
-  --color-warning:        #f59e0b;
-  --color-danger:         #ef4444;
-  --color-info:           #38bdf8;
+  --color-success:       #22c55e;
+  --color-warning:       #f59e0b;
+  --color-danger:        #ef4444;
+  --color-info:          #38bdf8;
 
   /* Text */
-  --color-text-primary:   #f1f5f9;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted:     #475569;
-  --color-text-inverse:   #0a0a0f;
+  --color-text-primary:  #f1f5f9;
+  --color-text-secondary:#94a3b8;
+  --color-text-muted:    #475569;
 
   /* Borders */
-  --color-border:         #1e1e2e;
-  --color-border-subtle:  #16161f;
-  --color-border-focus:   #6366f1;
+  --color-border:        #1e1e2e;
+  --color-border-focus:  #6366f1;
 
-  /* Confidence banding */
-  --color-conf-high:      #22c55e;   /* > 0.75 */
-  --color-conf-med:       #f59e0b;   /* 0.5 – 0.75 */
-  --color-conf-low:       #ef4444;   /* < 0.5 */
+  /* Confidence banding (AI explainability) */
+  --color-conf-high:     #22c55e;   /* score > 0.75 */
+  --color-conf-med:      #f59e0b;   /* score 0.5–0.75 */
+  --color-conf-low:      #ef4444;   /* score < 0.5 */
 }
 ```
 
 ### Typography
 
-```css
-/* Font stack */
---font-sans:  'Inter', system-ui, sans-serif;
---font-mono:  'JetBrains Mono', 'Fira Code', monospace;
+- Body: `Inter`, 1rem/400
+- Code: `JetBrains Mono`, 0.875rem/400
+- Scale: xs(0.75) · sm(0.875) · base(1) · lg(1.125) · xl(1.25) · 2xl(1.5) · 3xl(1.875)
 
-/* Scale */
---text-xs:    0.75rem;    /* Labels, badges */
---text-sm:    0.875rem;   /* Body secondary */
---text-base:  1rem;       /* Body primary */
---text-lg:    1.125rem;   /* Subheadings */
---text-xl:    1.25rem;    /* Section headings */
---text-2xl:   1.5rem;     /* Page headings */
---text-3xl:   1.875rem;   /* Hero headings */
+### Spacing
 
-/* Weight */
---font-normal: 400;
---font-medium: 500;
---font-semibold: 600;
---font-bold: 700;
-```
+4px base unit. All spacing uses Tailwind's default 4px grid.
 
-### Spacing Scale
-
-4px base unit. All spacing uses multiples of 4.
-
-```
-1 = 4px | 2 = 8px | 3 = 12px | 4 = 16px | 5 = 20px | 6 = 24px
-8 = 32px | 10 = 40px | 12 = 48px | 16 = 64px | 20 = 80px | 24 = 96px
-```
-
-### Radius Scale
-
-```css
---radius-sm:   4px;
---radius-md:   8px;
---radius-lg:   12px;
---radius-xl:   16px;
---radius-full: 9999px;  /* Pills, badges */
-```
-
-### Elevation / Shadow System
+### Shadows / Elevation
 
 ```css
 --shadow-sm:   0 1px 2px rgba(0,0,0,0.4);
 --shadow-md:   0 4px 12px rgba(0,0,0,0.5);
 --shadow-lg:   0 8px 24px rgba(0,0,0,0.6);
---shadow-glow: 0 0 20px rgba(99,102,241,0.2);  /* Brand glow for active states */
+--shadow-glow: 0 0 20px rgba(99,102,241,0.2);
 ```
 
-### Icon System
+### Animation Rules (Framer Motion)
 
-Use **Lucide React** exclusively. Never import SVGs directly into feature components. Icon sizes are standardized: `16px` (inline), `20px` (button), `24px` (navigation).
+- All animations check `useReducedMotion()` from Framer Motion.
+- Page entrance: opacity 0→1, y +8px→0, 200ms easeOut.
+- Panel slide-in: x +16px→0, 180ms easeOut.
+- Skeleton: CSS `animate-pulse` only — no JS animation.
+- Data tables: no animation — only skeleton during loading.
 
-### Animation Rules
-
-Use **Framer Motion** for page transitions and panel entrances. Use CSS `transition` for hover/focus micro-interactions only.
-
-- Page entrance: `opacity 0→1`, `y +8px→0`, duration `200ms`, ease `easeOut`.
-- Panel slide-in: `x +16px→0`, duration `180ms`.
-- Skeleton pulse: CSS `animate-pulse`.
-- No animations on data tables — only skeleton loading.
-- Respect `prefers-reduced-motion`: all Framer Motion animations must check `useReducedMotion()`.
-
-### Component Library
-
-All components live in `components/ui/`. They wrap Shadcn primitives with project-specific tokens applied.
+### Component Library (`components/ui/`)
 
 | Component | Purpose |
 |---|---|
-| `Button` | Primary, secondary, ghost, destructive variants |
-| `Input` | Text input with label, error, and hint slots |
-| `Card` | Surface container with optional header/footer |
-| `Badge` | Semantic type label (success, warning, danger, info, default) |
-| `Dialog` | Modal with focus trap, ESC close, accessible title |
-| `Drawer` | Slide-in side panel for detail views |
-| `Table` | Sortable, accessible data table with column headers |
-| `Tabs` | Horizontal tab group with keyboard navigation |
-| `Tooltip` | Hover/focus disclosure for icon-only controls |
-| `Dropdown` | Accessible dropdown menu with keyboard support |
-| `Skeleton` | Loading placeholder matching component shape |
+| `Button` | 4 variants (primary, secondary, ghost, destructive), loading state, icon slot |
+| `Input` | Label, error message, hint text slots |
+| `Card` | Surface container with header, body, footer slots |
+| `Badge` | 6 semantic variants + confidence variant |
+| `Dialog` | Modal with focus trap, ESC close, `aria-labelledby` |
+| `Drawer` | Side panel with overlay and close button |
+| `Table` | Accessible data table with `th scope` |
+| `Tabs` | Keyboard-navigable tab group |
+| `Tooltip` | Hover + focus disclosure for icon-only controls |
+| `Dropdown` | Keyboard-operable menu |
+| `Skeleton` | Shape-matched loading placeholder |
 | `Spinner` | Inline loading indicator with `aria-label` |
-| `EmptyState` | Zero-data state with icon, heading, CTA |
-| `ErrorState` | Error boundary fallback with retry action |
-| `LoadingState` | Full-panel loading with skeleton grid |
 
-**Reuse Rule:** Before creating any new UI element, check `components/ui/` first. Never redefine a color, shadow, or spacing value inline — use CSS variables. Components must stay under 200 lines.
+**Rules:**
+- Before creating a new UI element, check `components/ui/` first.
+- Never define a color, shadow, or spacing value inline — always use CSS variables or Tailwind tokens.
+- No component in `components/ui/` reads from any store or service.
+- Components stay under 200 lines.
 
 ---
 
-## API Architecture
+## Modular API Architecture (`lib/api/`)
 
-### Single Axios Client (`lib/api.ts`)
+The networking layer is split into five modules. No feature component ever imports Axios directly.
 
-One Axios instance is created at startup. All service functions import from this file. No component ever calls `fetch()` or creates its own Axios instance.
+### `lib/api/client.ts`
+Creates and exports the single Axios instance with `baseURL` from `VITE_API_BASE_URL`. Registers interceptors from `interceptors.ts` on startup.
 
-**Request interceptor responsibilities:**
-1. Attach `Authorization: Bearer <token>` from `authStore`.
-2. Inject `X-Organization-ID` header from `authStore.organization_id`.
-3. Attach request timestamp for debugging.
+### `lib/api/interceptors.ts`
+Registers request and response interceptors on the Axios instance in order:
+1. Request: `auth.ts` injects JWT
+2. Request: `organization.ts` injects `X-Organization-ID`
+3. Response: success passthrough
+4. Response: error → `errors.ts` normalization
 
-**Response interceptor responsibilities:**
-1. On `401` → clear `authStore`, redirect to `/login`.
-2. Normalize all errors into a typed `ApiError` object: `{ message, status, code }`.
-3. Never let raw Axios errors propagate into feature components.
+### `lib/api/auth.ts`
+Request interceptor that reads `access_token` from `authStore` and attaches `Authorization: Bearer <token>` to every outbound request.
 
-**Request cancellation:**
-- Use `AbortController` signals passed via React Query's `signal` parameter.
-- All list/search queries must be cancellable.
-- Do not cancel mutations.
+### `lib/api/organization.ts`
+Request interceptor that reads `organization_id` from `authStore` and attaches `X-Organization-ID` header. Requests that do not require org context (login, health) are not affected — the header is ignored by those endpoints.
 
-**Typed responses:**
-- Every service function has an explicit return type annotation.
-- Response shapes mirror backend Pydantic schema field names exactly.
-- Shared interfaces live in `types/`.
+### `lib/api/errors.ts`
+Response interceptor that catches all Axios errors and normalizes them into a typed `ApiError` object:
+```typescript
+interface ApiError {
+  message: string;
+  status: number;
+  code?: string;
+}
+```
+On HTTP 401 → clears `authStore` and redirects to `/login`. Raw Axios errors never propagate to feature code.
 
-### Organization Context
-
-After login, `org_id` is stored in `authStore`. The Axios request interceptor reads it automatically. No feature component needs to pass `org_id` as a prop.
+**Request Cancellation:**
+All list and search queries pass an `AbortController` signal via React Query's `signal` parameter to the service function. Mutations are never cancelled.
 
 ---
 
 ## React Query Architecture
 
-React Query owns **all server state**. It is the single source of truth for any data that comes from the API.
+React Query owns **all server state**. Zustand never holds API response data.
 
 ### Cache Key Convention
 
 ```
-['resource', scopeId, ...filters]
+[resource, scope, ...filters]
 
-Examples:
+['health']
 ['memory', orgId]
 ['memory', orgId, scenarioId]
 ['memory', 'detail', entryId]
+['scenarios', orgId]
 ['entities', orgId]
-['entities', 'detail', entityId]
+['neighbors', entityId]
 ['agents']
 ['agents', 'detail', agentName]
-['health']
 ```
 
-### staleTime Strategy
+### staleTime by Resource
 
-| Data type | staleTime | Reason |
+| Resource | staleTime | Reason |
 |---|---|---|
-| Health check | 30 seconds | Needs to reflect backend status |
-| Memory entries | 60 seconds | Changes infrequently per session |
-| Scenarios | 2 minutes | Low-churn metadata |
-| Entities / Relationships | 2 minutes | Graph rarely changes mid-session |
-| Agent registry | 5 minutes | Static capability metadata |
-| Chat responses | `Infinity` | User-triggered mutations; never re-fetched |
-
-### gcTime Strategy
-
-Default `gcTime` of 5 minutes. Extend to 10 minutes for entity/relationship data to support graph navigation without refetches.
+| Health | 30s | Must reflect live backend status |
+| Memory entries | 60s | Low churn per session |
+| Scenarios | 2min | Metadata rarely changes mid-session |
+| Entities / Relationships | 2min | Graph stable within session |
+| Agent registry | 5min | Static capability metadata |
+| Chat / AI responses | `Infinity` | Mutation results; never re-fetched |
 
 ### Mutation Invalidation Rules
 
-After a successful mutation, invalidate the relevant list query:
-- Create memory entry → invalidate `['memory', orgId]`
-- Create scenario → invalidate `['scenarios', orgId]`
-- Workflow run → invalidate nothing (append to `chatStore`)
+| Mutation | Invalidates |
+|---|---|
+| Create memory entry | `['memory', orgId]` |
+| Create scenario | `['scenarios', orgId]` |
+| Workflow run | Nothing — result appended to `chatStore` |
 
-### Optimistic Updates
+### Post-Login Prefetch
 
-Apply optimistic updates **only** for status toggles and simple field updates. Never apply optimistic updates for creates (unknown server-generated IDs). Roll back on error and show a toast notification.
+After successful login, prefetch in order:
+1. `['health']`
+2. `['scenarios', orgId]`
+3. `['agents']`
 
-### Prefetch After Login
-
-After successful login, prefetch:
-1. `GET /api/v1/health`
-2. `GET /api/v1/scenarios/organization/{org_id}`
-3. `GET /api/v1/agents/`
-
-This ensures the Dashboard renders instantly without skeleton loading for the most critical widgets.
+This ensures Dashboard renders immediately without skeleton delays.
 
 ### Retry Policy
 
 ```typescript
 retry: (failureCount, error) => {
-  if (error.status === 401 || error.status === 403 || error.status === 404) return false;
+  if ([401, 403, 404].includes(error.status)) return false;
   return failureCount < 2;
 }
 ```
 
 ### Pagination
 
-Use cursor-based or offset pagination depending on backend support. Default page size: 20. All list queries accept `{ page, limit }` parameters. Use `keepPreviousData: true` to prevent table flash on page change.
-
-### Infinite Scrolling
-
-Use `useInfiniteQuery` for chat message history and memory search results where the user scrolls to load more.
+Default page size: 20. All list queries accept `{ page, limit }`. Use `keepPreviousData: true` to prevent table flash during page change. Use `useInfiniteQuery` for chat history and search result streams.
 
 ---
 
 ## Zustand Architecture
 
-Zustand manages **client-side UI state only**. Never store server response data in Zustand.
+### Boundary Rule
 
-### What belongs in Zustand
+Zustand holds **client UI state only**. The moment data comes from an API response, React Query owns it.
 
-- Auth token, user object, org_id (persisted to localStorage)
-- Theme preference, sidebar collapsed state
-- Currently selected IDs (not the data itself)
-- Chat conversation history (user messages + AI responses assembled client-side)
-- Graph selection state (selected entity ID, expanded nodes)
-- Agent panel active tab, last workflow result
-
-### What never belongs in Zustand
-
-- API response lists (memory entries, entities, agents) — that is React Query's job
-- Loading/error states for server requests — React Query owns those
-- Form values — React Hook Form owns those
+| Belongs in Zustand | Never in Zustand |
+|---|---|
+| JWT token, user, org_id | API response lists |
+| Sidebar collapsed state | Loading / error flags for requests |
+| Theme preference | Paginated data |
+| Selected entity ID (not the entity data) | Form field values |
+| Chat message history (assembled client-side) | React Query cache |
+| Agent active panel tab | Server-generated IDs before creation |
 
 ### Store Definitions
 
-| Store | State | Purpose |
+| Store | State fields | Persistence |
 |---|---|---|
-| `authStore` | token, user, org_id | JWT session, persisted |
-| `uiStore` | sidebarCollapsed, theme, toasts | UI preferences |
-| `workspaceStore` | activeSection, breadcrumbs | Navigation state |
-| `graphStore` | selectedEntityId, expandedNodeIds, filterType, layoutMode | Graph interaction |
-| `chatStore` | messages[], activeMode, isLoading, lastMetadata | Chat session |
-| `agentStore` | activePanel, selectedAgentName, workflowHistory[] | Agent workspace |
+| `authStore` | `access_token`, `user`, `organization_id` | localStorage via `persist` |
+| `uiStore` | `sidebarCollapsed`, `theme`, `toasts[]` | localStorage (theme only) |
+| `workspaceStore` | `activeSection`, `activeScenarioId` | Session only |
+| `graphStore` | `selectedEntityId`, `expandedNodeIds[]`, `filterType`, `searchTerm` | Session only |
+| `chatStore` | `messages[]`, `activeMode`, `isStreaming`, `abortController` | Session only |
+| `agentStore` | `activePanel`, `selectedAgentName`, `workflowHistory[]` | Session only |
+
+---
+
+## `features/explainability/` — AI Explainability Feature Module
+
+### Why a Dedicated Feature Module
+
+AI explainability components are used across Chat, Retrieval Inspector, Engineering Copilot, Multi-Agent Workspace, and the future AI Governance Dashboard. If placed inside `features/chat/`, they become implicitly owned by chat and must be moved when reused. Placing them in `components/ui/` would be wrong — they are not design system primitives; they encode AI domain knowledge. A dedicated `features/explainability/` module makes the ownership explicit, the reuse path obvious, and the future governance dashboard a natural extension.
+
+### Components
+
+| Component | Responsibility |
+|---|---|
+| `CitationPanel` | Full citation list for an AI response |
+| `CitationCard` | Single citation: title, type, vector score, graph score, rank |
+| `ConfidenceBadge` | Numeric confidence value + color band (high/med/low) |
+| `ConfidenceLegend` | Explains confidence banding — shown on first render or on hover |
+| `GraphPathPanel` | Entity traversal chain rendered as breadcrumb + accessible `<ol>` |
+| `RetrievalModeTag` | Tag showing: semantic / hybrid / engineering |
+| `RetrievalReasonCard` | Single retrieval result with score breakdown (vector + graph + combined) |
+| `SourceMemoryCard` | Memory entry preview: title, type, snippet, link |
+| `ExplainabilityDrawer` | Collects all panels above into a slide-in drawer for full response inspection |
+
+### Usage Rule
+
+Every AI response surface **must** render:
+1. `CitationPanel` — always visible, not collapsible by default
+2. `ConfidenceBadge` — shown inline beside the answer
+3. `RetrievalModeTag` — shown inline beside the answer
+4. `GraphPathPanel` — shown below the answer when `graph_path` is non-empty
+5. `ParticipatingAgentsList` — shown when `participating_agents` is non-empty
+
+These components are **never hidden**. They are the proof of explainability required for the IBM AI Builders Challenge.
+
+### Surfaces That Import from `features/explainability/`
+
+- `features/chat/` — main RAG chat
+- `features/retrieval/` — retrieval explain page
+- `features/engineering/` — engineering copilot responses
+- `features/agents/` — multi-agent workflow responses
+- Future: `features/governance/` — AI usage audit dashboard
+
+### Rule
+
+`features/explainability/` components never call services or stores directly. They receive all data as props. They are pure display components.
 
 ---
 
@@ -409,38 +501,44 @@ Zustand manages **client-side UI state only**. Never store server response data 
 
 ### Why This Milestone Exists
 
-All subsequent milestones depend on a correctly configured build system, design token system, component library, and global provider tree. Building these once — and correctly — avoids rework in every downstream milestone. A missing CSS variable, an incorrectly configured Tailwind prefix, or a missing provider at the app root would cause cascading failures across all features. This milestone is infrastructure, not a feature.
+All downstream milestones depend on:
+- A working Vite + TypeScript build
+- Tailwind CSS with the correct design token configuration
+- Shadcn UI initialized with project overrides
+- The global provider tree (`providers/index.tsx`) already assembled
+- The Axios client fully configured with interceptors
+- The React Query client with global defaults
+- All 12 UI primitives and 3 feedback components available for import
+- Vitest + RTL + MSW test infrastructure runnable
+
+Without this milestone complete and validated, no feature milestone can be implemented correctly. A single misconfigured CSS variable or missing provider propagates as a bug into every downstream milestone. This milestone is **infrastructure**, not a feature.
 
 ### Goal
 
-Bootstrap the Vite + React + TypeScript project, configure Tailwind CSS and Shadcn UI with the full TeamMemoryOS design token system, establish the global provider tree, and build every shared UI primitive that downstream milestones will consume.
+Bootstrap the Vite + React 18 + TypeScript project. Configure Tailwind + Shadcn with TeamMemoryOS design tokens. Assemble the global provider tree. Build all UI primitives. Set up the modular API layer structure. Set up test infrastructure.
 
 ### Features
 
-- Vite + React 18 + TypeScript scaffold
-- Tailwind CSS with custom design tokens
-- Shadcn UI initialization with component overrides
-- CSS variable design token system (`styles/tokens.css`)
-- Typography, color, spacing, radius, shadow, animation tokens
-- Inter + JetBrains Mono font setup
-- Lucide React icon integration
-- ThemeProvider (dark mode by default)
-- Global providers tree: QueryClientProvider, RouterProvider, ThemeProvider
-- All UI primitive components (full list in Design System section)
-- Global Framer Motion animation variants
-- Global `LoadingState`, `EmptyState`, `ErrorState`, `Skeleton`, `Spinner`
-- `lib/api.ts` — Axios client with interceptors (no auth logic yet, just structure)
+- Vite + React 18 + TypeScript scaffold with strict mode
+- Tailwind CSS with `tokens.css` design token system
+- Shadcn UI initialized; components overridden with project tokens
+- `providers/index.tsx` — ordered provider composition
+- `layouts/RootLayout.tsx` — root error boundary + Suspense
+- All `components/ui/` primitives (12 components)
+- `components/feedback/` — LoadingState, EmptyState, ErrorState, Skeleton, Spinner
+- `lib/api/` — modular API layer (5 modules, no auth wired yet)
 - `lib/queryClient.ts` — React Query client with retry/staleTime defaults
-- `lib/cn.ts` — Tailwind class merge utility
-- `utils/` — date, truncate, color, score helpers
-- TypeScript path aliases (`@/` → `src/`)
+- `utils/cn.ts` — Tailwind class merge utility
+- `utils/` — formatDate, truncate, colorFromType, scoreToLabel
+- `config/constants.ts` — PAGE_SIZE=20, DEBOUNCE_MS=300
+- TypeScript path aliases: `@/` → `src/`
 - `.env.example` with `VITE_API_BASE_URL`
-- Vitest + React Testing Library + MSW test infrastructure setup
+- Vitest + React Testing Library + MSW installed and configured
 - `package.json` with all dependencies pinned
 
 ### Backend APIs Required
 
-None. This milestone has no backend integration. It is purely frontend infrastructure.
+**None.** This milestone has zero backend integration. It is purely frontend infrastructure.
 
 ### React Components
 
@@ -449,16 +547,16 @@ None. This milestone has no backend integration. It is purely frontend infrastru
 | `Button` | `components/ui/Button.tsx` | 4 variants, loading state, icon slot |
 | `Input` | `components/ui/Input.tsx` | Label, error, hint slots |
 | `Card` | `components/ui/Card.tsx` | Header, body, footer slots |
-| `Badge` | `components/ui/Badge.tsx` | 6 semantic variants |
-| `Dialog` | `components/ui/Dialog.tsx` | Focus trap, ESC, accessible title |
+| `Badge` | `components/ui/Badge.tsx` | 6 semantic + confidence variants |
+| `Dialog` | `components/ui/Dialog.tsx` | Focus trap, ESC, aria-labelledby |
 | `Drawer` | `components/ui/Drawer.tsx` | Side panel with overlay |
 | `Table` | `components/ui/Table.tsx` | th scope, keyboard rows |
 | `Tabs` | `components/ui/Tabs.tsx` | Keyboard navigation |
 | `Tooltip` | `components/ui/Tooltip.tsx` | Hover + focus disclosure |
 | `Dropdown` | `components/ui/Dropdown.tsx` | Keyboard operable |
-| `Skeleton` | `components/ui/Skeleton.tsx` | Shape-matched loading |
+| `Skeleton` | `components/ui/Skeleton.tsx` | Shape-matched |
 | `Spinner` | `components/ui/Spinner.tsx` | aria-label required |
-| `EmptyState` | `components/feedback/EmptyState.tsx` | Icon, heading, CTA |
+| `EmptyState` | `components/feedback/EmptyState.tsx` | Icon, heading, optional CTA |
 | `ErrorState` | `components/feedback/ErrorState.tsx` | Retry action |
 | `LoadingState` | `components/feedback/LoadingState.tsx` | Full-panel skeleton grid |
 
@@ -468,11 +566,14 @@ None. This milestone has no backend integration. It is purely frontend infrastru
 frontend/
   app/index.tsx
   app/routes.tsx
-  components/ui/          ← All 12 primitives
-  components/feedback/    ← EmptyState, ErrorState, LoadingState
-  lib/api.ts
+  providers/
+  layouts/RootLayout.tsx
+  config/constants.ts
+  config/theme.ts
+  components/ui/          ← 12 primitives
+  components/feedback/    ← 5 feedback components
+  lib/api/                ← 5 modules (no auth interceptor wired yet)
   lib/queryClient.ts
-  lib/cn.ts
   utils/
   styles/globals.css
   styles/tokens.css
@@ -486,47 +587,41 @@ frontend/
   .env.example
 ```
 
-### State Management
-
-None in this milestone. `lib/api.ts` is scaffolded but auth interceptor is wired in Milestone 8.1 once `authStore` exists.
-
 ### Accessibility
 
-- All UI primitives ship with correct ARIA roles and attributes.
-- `Dialog` has `role="dialog"`, `aria-modal="true"`, `aria-labelledby`.
-- `Button` has `aria-disabled` instead of the `disabled` attribute when showing loading state.
-- All color tokens meet WCAG AA contrast ratio (4.5:1 minimum for text, 3:1 for UI elements).
-- Tailwind configuration includes `aria-*` variant support.
+- All primitives ship with correct ARIA roles.
+- `Dialog`: `role="dialog"`, `aria-modal="true"`, `aria-labelledby`.
+- `Button` loading state: uses `aria-disabled` (not `disabled`) to preserve focus.
+- Color tokens verified to meet WCAG AA contrast (4.5:1 text, 3:1 UI elements).
+- `Tabs`: arrow-key navigation per ARIA APG pattern.
 
 ### Security
 
-- No secrets or environment values are embedded in the build output.
-- `VITE_API_BASE_URL` is the only runtime config value.
-- Strict TypeScript (`"strict": true` in `tsconfig.json`).
-- No `dangerouslySetInnerHTML` in any primitive component.
+- Strict TypeScript (`"strict": true`).
+- No `dangerouslySetInnerHTML` in any primitive.
+- `VITE_API_BASE_URL` is the only env variable. No secrets in build output.
 
 ### Testing Checklist
 
-- [ ] Vitest + React Testing Library + MSW installed and running
-- [ ] Snapshot test for each UI primitive (Button, Card, Badge, Spinner, EmptyState)
-- [ ] All components render without console errors
-- [ ] Tailwind tokens resolve correctly in test environment
+- [ ] Vitest, RTL, MSW installed and `npm test` runs
+- [ ] Snapshot test for each of: Button, Card, Badge, Spinner, EmptyState
+- [ ] All primitives render without console errors
+- [ ] CSS variables resolve correctly in jsdom test environment
 
 ### Performance
 
-- All route components are wrapped in `React.lazy()` from Milestone 8.1 onward.
-- Shadcn components are imported individually — no full-library barrel imports.
-- Lucide icons are imported individually — no barrel imports.
+- Shadcn components imported individually (no barrel imports).
+- Lucide icons imported individually.
+- Route components use `React.lazy()` from Milestone 8.1 onward.
 
 ### Validation Checklist
 
 - [ ] `npm run dev` starts without errors
-- [ ] `npm run build` produces clean output with no TypeScript errors
-- [ ] `npm test` runs and passes all primitive component tests
-- [ ] Design tokens render correctly in browser (inspect CSS variables in DevTools)
-- [ ] EmptyState, LoadingState, ErrorState all render in Storybook or test harness
-- [ ] Tailwind purge is configured for `frontend/src/**`
-- [ ] Path alias `@/` resolves correctly
+- [ ] `npm run build` completes with zero TypeScript errors
+- [ ] `npm test` passes
+- [ ] Design tokens visible in browser DevTools (CSS variables present on `:root`)
+- [ ] Path alias `@/` resolves correctly in both app and test environments
+- [ ] Tailwind purge configured for `frontend/src/**`
 
 ---
 
@@ -534,44 +629,46 @@ None in this milestone. `lib/api.ts` is scaffolded but auth interceptor is wired
 
 ### Goal
 
-Implement the complete authentication flow (login, logout, JWT storage, route guarding, unauthorized redirect), build the AppShell layout (Sidebar + Topbar), and create the Dashboard page with live backend health and organization summary widgets.
+Implement the complete authentication flow (login, logout, JWT storage, route guarding, session restore), build the `WorkspaceLayout` shell (Sidebar + Topbar driven by `config/navigation.ts`), and deliver the Dashboard with six live backend health and summary widgets.
 
 ### Features
 
-- Login page with form validation
-- JWT storage in `authStore` (Zustand, persisted to localStorage)
-- `AuthGuard` — redirects unauthenticated users to `/login`
-- `ProtectedRoute` — wraps all authenticated routes
-- Logout action with store clear and redirect
-- Session restore on page refresh (read token from localStorage)
-- Token refresh placeholder (hook exists, backend endpoint not yet implemented)
-- `AppShell` — persistent layout wrapping Sidebar + Topbar + main content area
-- Sidebar navigation with active route highlight
-- Topbar with organization name, user display, logout button
-- Dashboard with 6 live widgets (see widget table below)
-- Prefetch scenarios and agents after login
+- Login page with React Hook Form validation
+- `authStore` with localStorage persistence via Zustand `persist`
+- `AuthGuard` — redirects unauthenticated requests to `/login`
+- `ProtectedRoute` — HOC wrapper for authenticated routes
+- Logout: clears store + localStorage, redirects to `/login`
+- Session restore on page refresh (reads token from localStorage on mount)
+- Token refresh placeholder: `useTokenRefresh` hook exists but is a no-op pending backend endpoint
+- `WorkspaceLayout` — Sidebar + Topbar + main content slot
+- Sidebar navigation built from `config/navigation.ts`
+- Topbar: organization name, user display, logout button
+- Dashboard with six MVP widgets (details in widget table below)
+- Post-login prefetch: health, scenarios, agents
 
-### Dashboard Widgets
+### Dashboard Widgets (MVP)
 
-| Widget | Backend API | Description |
+| Widget | Backend API | Display |
 |---|---|---|
-| Backend Health | `GET /api/v1/health/` | Green/red indicator + latency |
-| Database Health | `GET /api/v1/health/db` | PostgreSQL connection status |
-| Memory Statistics | `GET /api/v1/memory/organization/{org_id}` | Total entries count by type |
-| Scenario Overview | `GET /api/v1/scenarios/organization/{org_id}` | Scenario count + names |
-| Agent Registry | `GET /api/v1/agents/` | Count of registered agents |
-| Quick Actions | Static | Shortcut buttons to Memory, Chat, Graph, Agents |
+| Backend Health | `GET /api/v1/health/` | Status indicator + latency ms |
+| Database Health | `GET /api/v1/health/db` | Status indicator |
+| Memory Count | `GET /api/v1/memory/organization/{org_id}` | Total entry count |
+| Scenario Count | `GET /api/v1/scenarios/organization/{org_id}` | Total scenario count |
+| Agent Count | `GET /api/v1/agents/` | Total registered agents |
+| Quick Actions | Static | Shortcut links: Memory, Chat, Graph, Agents |
+
+Analytics charts are deferred to Milestone 8.6.
 
 ### Backend APIs Required
 
 | Endpoint | Purpose |
 |---|---|
-| `POST /api/v1/auth/login` | OAuth2 password form → JWT |
-| `GET /api/v1/health/` | App health widget |
+| `POST /api/v1/auth/login` | OAuth2 password → JWT |
+| `GET /api/v1/health/` | Backend health widget |
 | `GET /api/v1/health/db` | DB health widget |
-| `GET /api/v1/memory/organization/{org_id}` | Memory stats widget |
-| `GET /api/v1/scenarios/organization/{org_id}` | Scenario overview widget |
-| `GET /api/v1/agents/` | Agent registry widget |
+| `GET /api/v1/memory/organization/{org_id}` | Memory count widget |
+| `GET /api/v1/scenarios/organization/{org_id}` | Scenario count widget |
+| `GET /api/v1/agents/` | Agent count widget + prefetch |
 
 ### React Components
 
@@ -580,111 +677,93 @@ Implement the complete authentication flow (login, logout, JWT storage, route gu
 | `LoginPage` | `features/auth/LoginPage.tsx` |
 | `AuthGuard` | `components/auth/AuthGuard.tsx` |
 | `ProtectedRoute` | `components/auth/ProtectedRoute.tsx` |
-| `AppShell` | `layouts/AppShell.tsx` |
+| `WorkspaceLayout` | `layouts/WorkspaceLayout.tsx` |
 | `AuthLayout` | `layouts/AuthLayout.tsx` |
 | `Sidebar` | `layouts/Sidebar.tsx` |
 | `Topbar` | `layouts/Topbar.tsx` |
 | `DashboardPage` | `features/dashboard/DashboardPage.tsx` |
 | `HealthWidget` | `features/dashboard/HealthWidget.tsx` |
-| `MemoryStatsWidget` | `features/dashboard/MemoryStatsWidget.tsx` |
-| `ScenarioOverviewWidget` | `features/dashboard/ScenarioOverviewWidget.tsx` |
-| `AgentRegistryWidget` | `features/dashboard/AgentRegistryWidget.tsx` |
+| `MemoryCountWidget` | `features/dashboard/MemoryCountWidget.tsx` |
+| `ScenarioCountWidget` | `features/dashboard/ScenarioCountWidget.tsx` |
+| `AgentCountWidget` | `features/dashboard/AgentCountWidget.tsx` |
 | `QuickActionsWidget` | `features/dashboard/QuickActionsWidget.tsx` |
 
 ### Folder Additions
 
 ```
-features/
-  auth/
-    LoginPage.tsx
-    useLogin.ts
-  dashboard/
-    DashboardPage.tsx
-    HealthWidget.tsx
-    MemoryStatsWidget.tsx
-    ScenarioOverviewWidget.tsx
-    AgentRegistryWidget.tsx
-    QuickActionsWidget.tsx
-layouts/
-  AppShell.tsx
-  AuthLayout.tsx
-  Sidebar.tsx
-  Topbar.tsx
-components/
-  auth/
-    AuthGuard.tsx
-    ProtectedRoute.tsx
-services/
-  authService.ts
-  healthService.ts
-stores/
-  authStore.ts
-  uiStore.ts
-hooks/
-  useAuth.ts
-  useOrganization.ts
-types/
-  auth.ts
+features/auth/
+features/dashboard/
+layouts/WorkspaceLayout.tsx
+layouts/AuthLayout.tsx
+layouts/Sidebar.tsx
+layouts/Topbar.tsx
+components/auth/
+config/navigation.ts
+services/authService.ts
+services/healthService.ts
+stores/authStore.ts
+stores/uiStore.ts
+hooks/useAuth.ts
+hooks/useOrganization.ts
+types/auth.ts
 ```
 
 ### State Management
 
-- **Zustand** — `authStore`: `access_token`, `user`, `organization_id`. Persist to localStorage via `persist` middleware.
-- **Zustand** — `uiStore`: `sidebarCollapsed`, `theme`.
-- **React Query** — health check query (`staleTime: 30s`), memory stats, scenario count, agent registry (prefetched after login).
-- **React Hook Form** — Login form with `email` + `password` fields.
+- `authStore` (Zustand + persist): `access_token`, `user`, `organization_id`.
+- `uiStore` (Zustand + persist for theme): `sidebarCollapsed`, `theme`.
+- React Query: health queries `staleTime: 30s`; memory/scenario/agent counts prefetched.
+- React Hook Form: login form.
 
 ### Routing
 
-| Route | Component | Protected |
-|---|---|---|
-| `/login` | `LoginPage` inside `AuthLayout` | No |
-| `/` | `DashboardPage` inside `AppShell` | Yes |
-| `/*` | Child routes inside `AppShell` | Yes |
+| Route | Layout | Component | Protected |
+|---|---|---|---|
+| `/login` | `AuthLayout` | `LoginPage` | No |
+| `/` | `WorkspaceLayout` | `DashboardPage` | Yes |
+| `/*` | `WorkspaceLayout` | Child route | Yes |
 
 ### Accessibility
 
-- Login form: `<label>` for each input, `aria-required`, `aria-describedby` for errors.
-- Login button: `aria-busy="true"` during submission, `aria-disabled` when form is invalid.
-- Sidebar: `<nav role="navigation" aria-label="Main navigation">`.
-- Active sidebar item: `aria-current="page"`.
-- Keyboard navigation through sidebar items with `Tab` and `Enter`.
+- Login form: `<label>` per field, `aria-required`, `aria-describedby` for errors.
+- Sidebar: `<nav role="navigation" aria-label="Main navigation">`, `aria-current="page"` on active item.
 - Dashboard widgets: `role="region"` with `aria-labelledby` pointing to widget heading.
+- Topbar logout button: `aria-label="Sign out"`.
 
 ### Security
 
-- JWT stored in `localStorage` (accepted trade-off for SPA; document in security section).
-- Token never logged to console.
-- Logout clears entire `authStore` state and removes localStorage entry.
-- `AuthGuard` renders nothing (not a loading state) until auth state is resolved, preventing flash of authenticated content.
-- Login error messages are generic — do not reveal whether email or password was incorrect.
+- JWT stored in `localStorage` — documented risk, accepted for SPA.
+- Token never logged to console or included in error messages.
+- Logout clears `authStore` entirely and removes localStorage key.
+- `AuthGuard` renders `null` until auth state is resolved (prevents flash of protected content).
+- Login error: generic message — does not reveal whether email or password failed.
 
 ### Testing Checklist
 
-- [ ] `useLogin` hook: test successful login stores token and redirects
-- [ ] `useLogin` hook: test failed login sets error state
-- [ ] `AuthGuard`: renders children when authenticated, redirects when not
-- [ ] `LoginPage`: form validation errors display correctly
-- [ ] `authStore`: persists and restores from localStorage
-- [ ] `DashboardPage`: renders all 6 widgets with MSW-mocked responses
-- [ ] `HealthWidget`: shows green when healthy, red when unhealthy
+- [ ] `useLogin`: success path stores token + redirects
+- [ ] `useLogin`: failure path sets error message
+- [ ] `AuthGuard`: renders children when authenticated; redirects when not
+- [ ] `LoginPage`: invalid form shows validation errors; valid form calls service
+- [ ] `authStore`: persistence to localStorage and restore on mount
+- [ ] `DashboardPage`: all 6 widgets render with MSW-mocked API responses
+- [ ] `HealthWidget`: green on healthy response; red on unhealthy/error
 
 ### Performance
 
-- Dashboard widgets load in parallel (independent React Query queries).
-- Sidebar route components use `React.lazy()` — not loaded until navigation.
-- Login page is the only eagerly loaded route.
+- Dashboard widgets use parallel independent React Query queries.
+- All routes except `/login` are `React.lazy()`.
+- Sidebar is rendered eagerly (it is part of the persistent shell).
 
 ### Validation Checklist
 
 - [ ] Login with valid credentials stores JWT and redirects to `/`
-- [ ] Invalid credentials shows error message without revealing which field failed
-- [ ] Unauthenticated `GET /` redirects to `/login`
-- [ ] Logout clears state and redirects to `/login`
+- [ ] Invalid credentials shows error without field-level disclosure
+- [ ] Unauthenticated `/` redirects to `/login`
+- [ ] Logout clears session and redirects to `/login`
 - [ ] Page refresh restores authenticated session
-- [ ] All 6 dashboard widgets render live data
-- [ ] Sidebar highlights active route
-- [ ] Sidebar collapse works on desktop
+- [ ] All 6 dashboard widgets display live data
+- [ ] Sidebar highlights active route correctly
+- [ ] Sidebar collapses and expands
 
 ---
 
@@ -692,22 +771,31 @@ types/
 
 ### Goal
 
-Build the organizational memory interface: paginated list of memory entries by scenario, semantic search, create/view entries, scenario management, and memory link display.
+Build the organizational memory interface: paginated table of memory entries filtered by scenario, semantic search, create/view entries via a detail drawer with deep-link URL support, scenario navigation, and memory link display.
 
 ### Features
 
-- Memory entry list table with pagination (20 per page)
-- Filter by scenario (sidebar navigation)
+- Memory entry table with pagination (20 per page)
+- Scenario sidebar navigation (filter table by selected scenario)
 - Semantic search with 300ms debounce
-- Memory entry detail drawer (not a new page)
-- Create memory entry dialog with form validation
-- Scenario list sidebar
+- Memory entry detail Drawer — opens on row click
+- Deep-link support: route `/memory/:memoryId` opens drawer directly on load
+- "Copy Link" button in drawer header
+- Create memory entry dialog
 - Create scenario dialog
-- Memory type badges (DECISION, CODE, DISCUSSION, DOCUMENTATION, INCIDENT)
-- Memory link display on entry detail
-- Bulk action scaffolding (future-ready: checkboxes in table, disabled action bar)
-- Empty state when no memories exist
-- Error state for failed API requests
+- Memory type badge (DECISION, CODE, DISCUSSION, DOCUMENTATION, INCIDENT)
+- Memory link list in drawer detail
+- Bulk action scaffolding (checkboxes present, action bar disabled — future-ready)
+- Empty state, error state, loading skeleton
+
+### Deep-Link Routing Behavior
+
+The memory detail Drawer is the primary UX (row click → drawer). However, the URL is updated to `/memory/:memoryId` when a drawer opens. This enables:
+- Sharing a direct link to a memory entry
+- Browser back button closes the drawer (React Router location state)
+- Citations from AI responses can link directly to a memory entry
+
+On direct navigation to `/memory/:memoryId`, the Drawer opens immediately after the list loads. The list remains visible behind the drawer so context is preserved.
 
 ### Backend APIs Required
 
@@ -733,81 +821,73 @@ Build the organizational memory interface: paginated list of memory entries by s
 | `MemorySearchBar` | `features/memory/MemorySearchBar.tsx` |
 | `MemoryTypeBadge` | `features/memory/MemoryTypeBadge.tsx` |
 | `ScenarioSidebar` | `features/scenarios/ScenarioSidebar.tsx` |
-| `ScenarioList` | `features/scenarios/ScenarioList.tsx` |
 | `CreateScenarioDialog` | `features/scenarios/CreateScenarioDialog.tsx` |
 
 ### Folder Additions
 
 ```
-features/
-  memory/
-  scenarios/
-services/
-  memoryService.ts
-  scenarioService.ts
-types/
-  memory.ts
-  scenario.ts
+features/memory/
+features/scenarios/
+services/memoryService.ts
+services/scenarioService.ts
+types/memory.ts
+types/scenario.ts
+stores/workspaceStore.ts
 ```
 
 ### State Management
 
-- **React Query** — `['memory', orgId]`, `['memory', orgId, scenarioId]`, `['memory', 'detail', entryId]`, `['scenarios', orgId]`.
-- **React Query** — `useMutation` for create memory, create scenario. Invalidate list on success.
-- **Zustand** — `workspaceStore.activeScenarioId` for scenario navigation selection.
-- **React Hook Form** — `CreateMemoryDialog`, `CreateScenarioDialog` validation.
+- React Query: `['memory', orgId]`, `['memory', orgId, scenarioId]`, `['memory', 'detail', entryId]`, `['scenarios', orgId]`.
+- React Query mutation: create memory → invalidate `['memory', orgId]`; create scenario → invalidate `['scenarios', orgId]`.
+- Zustand `workspaceStore.activeScenarioId`: which scenario is selected in sidebar.
+- React Hook Form: `CreateMemoryDialog`, `CreateScenarioDialog`.
 
 ### Routing
 
-| Route | Component |
+| Route | Behavior |
 |---|---|
-| `/memory` | `MemoryPage` (list + search) |
-| `/scenarios` | `ScenarioList` (renders in `MemoryPage` sidebar) |
-
-Memory entry detail opens in a `Drawer` component — no separate route. This keeps the URL stable while showing detail.
+| `/memory` | List page, no drawer |
+| `/memory/:memoryId` | List page + Drawer open for `memoryId` |
+| `/scenarios` | Scenario list (renders within `MemoryPage` sidebar) |
 
 ### Accessibility
 
-- Table: `<th scope="col">` on all column headers. Row click opens drawer, not navigation.
-- Search: `role="search"`, `aria-label="Search memory entries"`, debounced.
-- Create dialog: focus moves to dialog heading on open, returns to trigger button on close. `ESC` closes.
-- Memory type badges: text label + icon, not color-only indicators.
-- Scenario sidebar: `role="list"`, each item `role="listitem"`.
-- Drawer: `role="complementary"`, `aria-label="Memory entry detail"`.
+- Table: `<th scope="col">` on all headers. Row `onClick` opens drawer — not navigation.
+- Search: `role="search"`, `aria-label="Search memory entries"`.
+- Drawer: `role="complementary"`, `aria-label="Memory entry detail"`. Focus moves to drawer heading on open; returns to triggering row on close.
+- Memory type badges: text label + color (not color-only).
+- Bulk checkboxes: `aria-label="Select entry"`, `aria-disabled="true"` in current phase.
 
 ### Security
 
-- `org_id` injected via Axios interceptor — never accepted from URL params.
-- Memory entry content is rendered as plain text — no HTML rendering of user content.
+- `org_id` injected by Axios interceptor — never read from URL parameters.
+- Memory entry content rendered as plain text — no HTML rendering of user-generated content.
 
 ### Testing Checklist
 
-- [ ] `MemoryTable`: renders list with MSW mock; shows skeleton while loading
-- [ ] `MemorySearchBar`: debounce fires search after 300ms, not on every keystroke
-- [ ] `CreateMemoryDialog`: validates required fields; submits and invalidates cache
-- [ ] `useMemory` hook: handles pagination correctly
-- [ ] `ScenarioList`: renders scenario names; selecting one filters the table
-- [ ] Empty state renders when `GET /memory` returns empty array
-- [ ] Error state renders when `GET /memory` fails with 500
+- [ ] `MemoryTable` renders list with MSW mock; shows skeleton while loading
+- [ ] `MemorySearchBar` debounce: query fires after 300ms, not on every keystroke
+- [ ] `CreateMemoryDialog` validates required fields; success invalidates cache
+- [ ] Deep-link: navigating to `/memory/:id` opens drawer with correct entry
+- [ ] "Copy Link" writes correct URL to clipboard
+- [ ] Empty state on empty array response; error state on 500
 
 ### Performance
 
-- Memory table uses `keepPreviousData: true` during pagination.
-- `MemorySearchBar` debounces 300ms before firing query.
-- `Drawer` is lazy-rendered — DOM not inserted until first open.
-- Memory entry content truncated at 200 characters in table view.
+- `keepPreviousData: true` during page changes — no table flash.
+- `MemoryEntryDrawer` DOM not inserted until first open.
+- Memory entry content truncated at 200 characters in table row.
 
 ### Validation Checklist
 
-- [ ] Memory list loads and paginates correctly
-- [ ] Create memory entry form validates required fields and submits
+- [ ] Memory list loads and paginates
+- [ ] Scenario filter correctly scopes the memory list
 - [ ] Semantic search returns results or empty state
-- [ ] Scenario list loads; selecting a scenario filters the memory table
-- [ ] Entry detail drawer shows all fields including type, timestamps, content
+- [ ] Create memory form submits and list refreshes
+- [ ] Drawer opens on row click and on direct URL navigation
+- [ ] Copy Link works
 - [ ] Loading skeletons appear during API calls
-- [ ] Error states shown for failed requests
-- [ ] Responsive on tablet viewport
-- [ ] Bulk action checkboxes visible in table (disabled, future-ready)
+- [ ] Error state on API failure
 
 ---
 
@@ -815,33 +895,47 @@ Memory entry detail opens in a `Drawer` component — no separate route. This ke
 
 ### Goal
 
-Build an interactive knowledge graph visualization using React Flow. Display entities as nodes, relationships as directed edges, support entity type filtering, neighbor expansion, entity and relationship inspector panels, mini-map, zoom controls, and a full accessibility fallback table.
+Build an interactive knowledge graph visualization using React Flow. Progressive loading architecture: initial entity set, on-demand neighbor expansion, entity type filtering, full-text entity search, entity and relationship inspectors, mini-map, zoom controls, and an accessible table fallback.
+
+### Progressive Loading Architecture
+
+The graph does not load all edges upfront. This prevents performance degradation on large organizations.
+
+| Phase | Data loaded | Trigger |
+|---|---|---|
+| Initial load | All entities as nodes (no edges) | Page open |
+| Edge reveal | Outgoing edges for a node | Node click / expand |
+| Neighbor expansion | Neighbor nodes + their edges | "Expand Neighbors" action |
+| Search filter | Client-side node visibility filter | Search input (300ms debounce) |
+| Type filter | Client-side node visibility filter | Filter chip toggle |
+
+React Flow manages its own `nodes` and `edges` state. React Query loads the raw entity/relationship data. A `useGraphLayout` hook transforms React Query data into React Flow node/edge format.
 
 ### Features
 
-- React Flow canvas with entity nodes and relationship edges
-- Node color by entity type
-- Click node → entity inspector panel (Drawer)
-- Click edge → relationship inspector (tooltip or inline panel)
-- Expand neighbors on demand (lazy-load edges per node)
-- Entity type filter chips
-- Full-text entity search with debounce
-- Mini-map for large graphs
+- React Flow canvas: entities as nodes (color by type), relationships as directed labeled edges
+- Click node → `EntityInspectorPanel` (Drawer)
+- Click edge → `RelationshipInspector` (Tooltip or inline callout)
+- "Expand Neighbors" button on each node
+- Entity type filter chips (toggle show/hide by type)
+- Entity search input (300ms debounce, client-side filter)
+- Mini-map
 - Zoom in / zoom out / fit-to-view controls
-- List/Table fallback for screen reader users
+- "Accessible View" toggle — makes `EntityFallbackTable` visible
+- `EntityFallbackTable` always present in DOM (`sr-only` by default)
 - Empty state when no entities exist
-- Entity links back to related memory entries
+- Entity detail links to related memory entries (via `GET /entities/memory/{memory_id}`)
 
 ### Backend APIs Required
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /api/v1/entities/organization/{org_id}` | Load all entities |
-| `GET /api/v1/entities/{entity_id}` | Entity detail |
-| `GET /api/v1/relationships/entity/{id}/outgoing` | Directed edges |
-| `GET /api/v1/relationships/entity/{id}/neighbors` | Neighbor expansion |
-| `GET /api/v1/relationships/{relationship_id}` | Relationship detail |
-| `GET /api/v1/entities/memory/{memory_id}` | Entities for a memory entry |
+| `GET /api/v1/entities/organization/{org_id}` | Initial entity set |
+| `GET /api/v1/entities/{entity_id}` | Entity detail for inspector |
+| `GET /api/v1/relationships/entity/{id}/outgoing` | Directed edges on expand |
+| `GET /api/v1/relationships/entity/{id}/neighbors` | Neighbor nodes on expand |
+| `GET /api/v1/relationships/{relationship_id}` | Relationship detail for inspector |
+| `GET /api/v1/entities/memory/{memory_id}` | Memory entries linked to entity |
 
 ### React Components
 
@@ -855,29 +949,27 @@ Build an interactive knowledge graph visualization using React Flow. Display ent
 | `RelationshipInspector` | `features/graph/RelationshipInspector.tsx` |
 | `GraphFilterBar` | `features/graph/GraphFilterBar.tsx` |
 | `GraphSearchInput` | `features/graph/GraphSearchInput.tsx` |
-| `EntityFallbackTable` | `features/graph/EntityFallbackTable.tsx` |
 | `GraphControls` | `features/graph/GraphControls.tsx` |
+| `EntityFallbackTable` | `features/graph/EntityFallbackTable.tsx` |
 
 ### Folder Additions
 
 ```
-features/
-  graph/
-    nodes/
-    edges/
-services/
-  entityService.ts
-  relationshipService.ts
-types/
-  entity.ts
-  relationship.ts
+features/graph/
+  nodes/
+  edges/
+services/entityService.ts
+services/relationshipService.ts
+stores/graphStore.ts
+types/entity.ts
+types/relationship.ts
 ```
 
 ### State Management
 
-- **React Query** — `['entities', orgId]` with `staleTime: 2min`. Per-entity neighbor queries `['neighbors', entityId]`.
-- **Zustand** — `graphStore`: `selectedEntityId`, `expandedNodeIds[]`, `filterType`, `searchTerm`, `layoutMode`.
-- React Flow manages internal canvas state via `useNodesState` and `useEdgesState`.
+- React Query: `['entities', orgId]` staleTime 2min. `['neighbors', entityId]` loaded on demand.
+- Zustand `graphStore`: `selectedEntityId`, `expandedNodeIds[]`, `filterType`, `searchTerm`.
+- React Flow: internal `useNodesState`, `useEdgesState` for canvas.
 
 ### Routing
 
@@ -887,46 +979,44 @@ types/
 
 ### Accessibility
 
-- `GraphCanvas`: `role="application"`, `aria-label="Knowledge graph visualization"`.
-- Every entity node: focusable via `Tab`, `Enter` to open inspector, `Space` to expand neighbors.
-- `EntityFallbackTable`: always rendered below the canvas (`sr-only` class by default), visible when user enables "Accessible View" toggle.
-- Filter chips: `role="group"`, `aria-label="Filter by entity type"`, each chip is a toggle button with `aria-pressed`.
-- Inspector panel: `role="complementary"`, `aria-label="Entity details"`.
-- Relationship inspector: accessible as tooltip with `role="tooltip"`.
+- Canvas: `role="application"`, `aria-label="Knowledge graph visualization"`.
+- Entity nodes: focusable, `Enter` opens inspector, `Space` triggers neighbor expansion.
+- `EntityFallbackTable`: `sr-only` by default; visible via "Accessible View" toggle button.
+- Filter chips: `role="group"`, `aria-label="Filter by entity type"`, `aria-pressed` per chip.
+- Inspector Drawer: `role="complementary"`, focus managed on open/close.
 
 ### Security
 
-- Entity name and description rendered as plain text — no HTML rendering.
-- Graph data scoped to `org_id` — enforced by backend, validated by service layer type checking.
+- Entity names and descriptions rendered as plain text — no HTML rendering.
+- Graph data scoped to `org_id` via Axios interceptor.
 
 ### Testing Checklist
 
-- [ ] `GraphCanvas`: renders nodes and edges with MSW-mocked entity/relationship data
-- [ ] `EntityNode`: focus and keyboard activation tested
-- [ ] `GraphFilterBar`: filter chips correctly filter visible nodes
-- [ ] `EntityFallbackTable`: renders all entities in accessible table format
-- [ ] Neighbor expansion triggers correct API call and adds nodes to canvas
-- [ ] Empty state renders when entity list is empty
+- [ ] `GraphCanvas` renders nodes with MSW-mocked entity data
+- [ ] Filter chips correctly toggle node visibility
+- [ ] `EntityFallbackTable` renders all entities in accessible format
+- [ ] Neighbor expansion calls correct endpoint and adds nodes to canvas
+- [ ] Empty state when entity list is empty
+- [ ] Inspector panel opens on node click
 
 ### Performance
 
-- React Flow `nodesDraggable: false` by default (enable only in debug mode) — reduces re-renders.
-- Neighbor expansion is lazy: only load edges for a node when it is clicked.
-- Entity list capped at 500 nodes before showing a "load more" pagination control — React Flow degrades above this.
+- `nodesDraggable: false` by default — significantly reduces React Flow re-renders.
+- Edge loading is lazy — never upfront.
 - `GraphCanvas` wrapped in `React.memo()`.
-- Use `useCallback` for all node/edge event handlers.
+- Event handlers wrapped in `useCallback`.
+- When entity count exceeds 300, display a "Showing top 300 entities" notice and paginate remaining.
 
 ### Validation Checklist
 
-- [ ] Graph renders all entities as nodes with correct type coloring
-- [ ] Edges render with relationship type labels
-- [ ] Clicking a node opens the inspector panel
-- [ ] Neighbor expansion loads and adds new nodes/edges
-- [ ] Entity type filter shows/hides node categories correctly
-- [ ] Graph search filters visible nodes in real time
-- [ ] Empty state when no entities exist
-- [ ] Accessible fallback table is available
-- [ ] Mini-map and zoom controls function
+- [ ] Graph renders entity nodes with type-correct colors
+- [ ] Directed edges render with relationship type labels
+- [ ] Neighbor expansion adds nodes and edges
+- [ ] Type filter hides and reveals correct node categories
+- [ ] Graph search filters nodes in real time
+- [ ] Accessible fallback table is available and navigable
+- [ ] Mini-map and zoom controls work
+- [ ] Entity inspector links back to memory entries
 
 ---
 
@@ -934,35 +1024,42 @@ types/
 
 ### Goal
 
-Build the primary AI interaction surface: a stateful chat interface backed by the hybrid RAG pipeline, a full explainability panel (citations, graph path, confidence, retrieval mode, participating agents), a retrieval explain view for debugging, and the Engineering Copilot panel (chat, debug, PR review modes).
+Build the primary AI interaction surface: a stateful chat backed by the hybrid RAG pipeline, Engineering Copilot (chat, debug, PR review), and a Retrieval Inspector. All AI responses display the full explainability set using `features/explainability/` components.
 
 ### Granite Integration Points
 
-- `POST /api/v1/chat/ask` → IBM Granite powers the RAG generation. The response includes `answer`, `citations`, `confidence`, `graph_path`, `retrieval_mode`, `participating_agents`, `suggested_actions`.
-- `POST /api/v1/engineering/chat` → Engineering Copilot powered by Granite with code-aware prompt engineering.
-- `POST /api/v1/engineering/debug` → Stack trace analysis via Granite.
-- `POST /api/v1/engineering/review` → PR review analysis via Granite.
-- `POST /api/v1/retrieval/explain` → Retrieval explanation without LLM (deterministic scoring only).
+| Endpoint | IBM Granite Role |
+|---|---|
+| `POST /api/v1/chat/ask` | Granite generates the RAG answer; returns citations, confidence, graph_path, retrieval_mode, participating_agents, suggested_actions |
+| `POST /api/v1/engineering/chat` | Granite with code-aware system prompt for engineering Q&A |
+| `POST /api/v1/engineering/debug` | Granite analyzes stack traces and identifies root cause |
+| `POST /api/v1/engineering/review` | Granite reviews PR diff for risk and quality |
+| `POST /api/v1/retrieval/explain` | Deterministic scoring only — no Granite; used to inspect raw retrieval |
 
-Every Granite response surface must show all explainability fields. These fields are **never hidden**.
+Every surface that calls a Granite endpoint **must** render all explainability fields. This is a hard requirement for IBM AI Builders Challenge compliance.
+
+### Streaming-Ready Architecture
+
+The backend does not yet support SSE streaming. However, the frontend must be built to enable streaming without a re-architecture when it is added.
+
+**Planning requirements:**
+- `chatStore.messages[]` stores messages as objects with `content: string` and `isStreaming: boolean`.
+- `ChatMessage` renders content from `message.content` — not from a one-shot API response. This means streaming can feed characters into `content` incrementally.
+- `chatStore` includes `abortController: AbortController | null` — used to cancel an in-progress request.
+- `ChatInput` includes an "Abort Generation" button shown when `isStreaming: true`.
+- `MarkdownRenderer` renders from the current `content` value — safe to be called with partial markdown during streaming.
 
 ### Features
 
-- Stateful chat conversation (messages persisted in `chatStore` for session lifetime)
-- Conversation sidebar (chat history list)
-- Chat input with `Enter` to send, `Shift+Enter` for newline, character count
-- Mode selector: General RAG / Hybrid GraphRAG / Engineering Copilot
-- Streaming-ready architecture (messages built to accept streaming text; streaming not enabled until backend supports SSE)
-- Citations panel: memory title, type, vector score, graph score, rank
-- Confidence badge: numeric value + color band (green/amber/red)
-- Retrieval mode tag: semantic / hybrid / engineering
-- Graph path: entity traversal chain rendered as breadcrumb
-- Participating agents: badge list per response
-- Suggested actions: rendered as clickable button row
-- Markdown rendering with safe sanitization
-- Code block rendering with syntax highlight and copy button
-- Retrieval Explain page: direct retrieval with per-result score breakdown
-- Engineering Copilot panel: chat, debug, and PR review sub-modes
+- Stateful conversation (messages in `chatStore`, persisted for session)
+- `ConversationSidebar` — chat history list (future: multiple conversations)
+- `ChatModeSelector` — General RAG / Hybrid GraphRAG / Engineering Copilot tabs
+- Chat input: Enter to send, Shift+Enter for newline, character count, Abort button
+- Full explainability panel on every response (citations, confidence, mode, graph path, agents, suggested actions) using `features/explainability/`
+- Markdown rendering with sanitization
+- Code blocks with syntax highlighting and copy button
+- `RetrievalExplainPage` — direct retrieval without LLM, per-result score breakdown
+- Engineering Copilot: chat, debug, and PR review sub-modes
 
 ### Backend APIs Required
 
@@ -985,48 +1082,36 @@ Every Granite response surface must show all explainability fields. These fields
 | `ChatMessage` | `features/chat/ChatMessage.tsx` |
 | `ChatInput` | `features/chat/ChatInput.tsx` |
 | `ChatModeSelector` | `features/chat/ChatModeSelector.tsx` |
-| `CitationPanel` | `features/chat/CitationPanel.tsx` |
-| `CitationCard` | `features/chat/CitationCard.tsx` |
-| `ConfidenceBadge` | `features/chat/ConfidenceBadge.tsx` |
-| `RetrievalModeTag` | `features/chat/RetrievalModeTag.tsx` |
-| `GraphPathBreadcrumb` | `features/chat/GraphPathBreadcrumb.tsx` |
-| `ParticipatingAgentsList` | `features/chat/ParticipatingAgentsList.tsx` |
-| `SuggestedActionsBar` | `features/chat/SuggestedActionsBar.tsx` |
 | `MarkdownRenderer` | `features/chat/MarkdownRenderer.tsx` |
 | `CodeBlock` | `features/chat/CodeBlock.tsx` |
 | `RetrievalExplainPage` | `features/retrieval/RetrievalExplainPage.tsx` |
 | `RetrievalResultCard` | `features/retrieval/RetrievalResultCard.tsx` |
-| `ScoreBreakdown` | `features/retrieval/ScoreBreakdown.tsx` |
 | `EngineeringCopilotPage` | `features/engineering/EngineeringCopilotPage.tsx` |
 | `DebugPanel` | `features/engineering/DebugPanel.tsx` |
 | `PRReviewPanel` | `features/engineering/PRReviewPanel.tsx` |
-
-### Shared Components (Produced Here, Reused in 8.5)
-
-`CitationPanel`, `ConfidenceBadge`, `RetrievalModeTag`, `GraphPathBreadcrumb`, `ParticipatingAgentsList`, `SuggestedActionsBar`, `MarkdownRenderer`, `CodeBlock` are placed in `features/chat/` but imported directly by `features/agents/`. They are not promoted to `components/` because they are AI-explainability concerns, not pure UI primitives.
+| *Explainability (all)* | `features/explainability/` — imported, not redefined |
 
 ### Folder Additions
 
 ```
-features/
-  chat/
-  retrieval/
-  engineering/
-services/
-  chatService.ts
-  retrievalService.ts
-  engineeringService.ts
-types/
-  chat.ts
-  retrieval.ts
-  engineering.ts
+features/chat/
+features/retrieval/
+features/engineering/
+features/explainability/    ← new module (full list in §5)
+services/chatService.ts
+services/retrievalService.ts
+services/engineeringService.ts
+stores/chatStore.ts
+types/chat.ts
+types/retrieval.ts
+types/engineering.ts
 ```
 
 ### State Management
 
-- **Zustand** — `chatStore`: `messages[]`, `activeMode`, `isStreaming`, `lastMetadata`. Messages are the source of truth for displayed conversation.
-- **React Query** — `useMutation` for all chat/ask, engineering, retrieval calls. On success, append response to `chatStore.messages`.
-- **React Hook Form** — chat input form, debug form (error_message + stack_trace), PR review form.
+- Zustand `chatStore`: `messages[]`, `activeMode`, `isStreaming`, `abortController`.
+- React Query `useMutation`: all chat/engineering/retrieval calls. On success → append to `chatStore.messages`.
+- React Hook Form: chat input, debug form (error_message + stack_trace), PR review form.
 
 ### Routing
 
@@ -1038,57 +1123,47 @@ types/
 
 ### Accessibility
 
-- Chat input: `aria-label="Ask a question"`, `Enter` to send, `Shift+Enter` for newline.
-- Message list: `role="log"`, `aria-live="polite"` for new messages.
-- Citations panel: always visible (not collapsed by default). Keyboard operable expand/collapse per citation.
-- Confidence badge: numeric value + text label — not color-only.
-- Graph path: linearized as `<ol>` (ordered list) alongside visual breadcrumb.
-- Loading state: `aria-busy="true"` on message list, `aria-live` announcement "Thinking...".
-- Code block copy button: `aria-label="Copy code"`, success state announced.
+- Message list: `role="log"`, `aria-live="polite"`.
+- Chat input: `aria-label="Ask a question"`.
+- Loading/streaming: `aria-busy="true"` on message list, `aria-live` announcement "Thinking...".
+- Code block copy button: `aria-label="Copy code"`, success state announced via `aria-live`.
+- Explainability components: see `features/explainability/` accessibility requirements.
 
 ### Markdown Rendering Security
 
-`MarkdownRenderer` must use **react-markdown** with **rehype-sanitize**. The sanitize schema must allow only: `p`, `a`, `code`, `pre`, `strong`, `em`, `ul`, `ol`, `li`, `h1`–`h6`, `blockquote`. Strip all `script`, `style`, `iframe`, and event handler attributes. This is a security-critical component.
+`MarkdownRenderer` uses `react-markdown` + `rehype-sanitize`. Allowed tags: `p`, `a`, `code`, `pre`, `strong`, `em`, `ul`, `ol`, `li`, `h1`–`h6`, `blockquote`. Strip all `script`, `style`, `iframe`, and event attributes. This is a security-critical rendering path.
 
-### Security
-
-- All AI response content sanitized through `rehype-sanitize` before rendering.
-- No `dangerouslySetInnerHTML` anywhere in chat components.
-- `suggested_actions` are rendered as buttons — not as links with `href` from the API response (XSS vector).
-- Citations memory content rendered as plain text only.
+`suggested_actions` are always rendered as `<button>` elements — never as anchor `href` from API data.
 
 ### Testing Checklist
 
-- [ ] `ChatPage`: sends message, displays response with all explainability fields (MSW mock)
-- [ ] `CitationPanel`: renders citation list with title, type, score
-- [ ] `ConfidenceBadge`: renders correct color for high (>0.75), medium (0.5–0.75), low (<0.5)
-- [ ] `MarkdownRenderer`: renders safe markdown; strips script tags
-- [ ] `CodeBlock`: renders code with copy button; copy fires clipboard write
-- [ ] `chatStore`: appends messages correctly; maintains conversation order
-- [ ] `ChatInput`: Enter submits, Shift+Enter adds newline
-- [ ] Empty state when chat history is empty
-- [ ] Error state when API returns 500
+- [ ] `ChatPage` sends message, displays response with all explainability fields (MSW)
+- [ ] `MarkdownRenderer` renders safe markdown; strips script tags (security test)
+- [ ] `CodeBlock` renders code; copy button writes to clipboard
+- [ ] `chatStore` appends messages in correct order; maintains conversation
+- [ ] `ChatInput` Enter submits; Shift+Enter adds newline
+- [ ] Abort button visible when `isStreaming: true`; abort clears streaming state
+- [ ] All 5 explainability components render when response metadata is present
+- [ ] Empty state when chat history is empty; error state on API failure
 
 ### Performance
 
-- Message list uses virtualization (`react-window`) if conversation exceeds 50 messages.
-- `MarkdownRenderer` is memoized — does not re-render unchanged messages.
-- Citations panel renders lazily — only builds DOM when panel is visible.
-- `CodeBlock` uses dynamic import for syntax highlighter.
+- Message list uses `react-window` virtualization when messages exceed 50.
+- `MarkdownRenderer` is `React.memo` — does not re-render unchanged messages.
+- Syntax highlighter imported dynamically.
 
 ### Validation Checklist
 
-- [ ] Chat sends question and displays answer with all 5 explainability fields
-- [ ] Hybrid mode toggle is functional and changes retrieval behavior
-- [ ] Citations render memory title, type, vector score, graph score
-- [ ] Confidence badge renders correct numeric value and color band
+- [ ] Chat sends question and displays answer with all explainability fields
+- [ ] Mode selector changes retrieval strategy correctly
+- [ ] Citations render title, type, vector score, graph score
+- [ ] Confidence badge renders correct value and color band
 - [ ] Graph path renders as ordered breadcrumb
-- [ ] Participating agents list renders for multi-agent responses
+- [ ] Participating agents list renders
 - [ ] Suggested actions render as clickable buttons
 - [ ] Retrieval explain page shows per-result score breakdown
-- [ ] Engineering chat, debug, and PR review each produce a formatted response
-- [ ] Markdown renders headings, code blocks, lists correctly
-- [ ] Code blocks have working copy button
+- [ ] Engineering chat, debug, PR review each produce a formatted response
+- [ ] Markdown renders headings, code blocks, and lists correctly
 
 ---
 
@@ -1096,31 +1171,37 @@ types/
 
 ### Goal
 
-Build the multi-agent UI: agent registry browser, workflow dry-run planner, workflow execution view, Repository Agent panel, Debug Agent panel, and conversation history with per-turn agent attribution. All AI response explainability fields (shared from 8.4) are displayed on every response.
+Build the multi-agent UI: agent registry browser, workflow dry-run planner, workflow execution with a timeline view, Repository Agent panel, Debug Agent panel, and conversation history with per-turn agent attribution. All responses use `features/explainability/` components.
 
-### LangGraph Portability
+### Workflow Timeline UX
 
-The workflow execution UI maps cleanly to LangGraph concepts:
-- **Agent registry** = LangGraph node catalog.
-- **Dry-run plan** = LangGraph `get_graph()` output (node + edge list).
-- **Workflow timeline** = LangGraph execution step log.
-- **Agent attribution** = LangGraph `metadata.source_node`.
+The workflow timeline replaces the raw JSON workflow visualization. It represents each agent step as a card in an ordered vertical timeline.
 
-When the backend migrates to LangGraph, only `agentsService.ts` changes — the UI components remain identical because they consume normalized workflow step objects.
+**Timeline steps (matching the backend multi-agent execution chain):**
+
+| Step | Agent | Displays |
+|---|---|---|
+| 1 | Planner | Question, selected agents, planned steps |
+| 2 | Repository Agent | Repository queried, branch, commits retrieved |
+| 3 | Debug Agent | Error parsed, incidents identified |
+| 4 | Retriever | Memory entries retrieved, vector + graph scores |
+| 5 | Granite | Prompt sent, answer generated, tokens used |
+| 6 | Explanation Builder | Citations assembled, confidence calculated, graph path built |
+
+Each step card displays: agent name, status (pending/running/complete/error), duration, memory entries used, and any citations produced.
+
+**LangGraph Portability:** The timeline step objects are normalized by `agentsService.ts`. When the backend migrates to LangGraph, only the service layer changes — timeline cards receive the same normalized `WorkflowStep[]` shape.
 
 ### Features
 
-- Agent registry grid: one card per agent, showing name, description, capabilities
-- Workflow panel: question input + agent multi-select + metadata fields
-- Dry-run planner: submit to `/workflow/plan`, display planned steps before execution
-- Workflow execution: submit to `/workflow/run`, show response with full explainability
-- Workflow execution timeline (ordered step list from response)
-- Repository Agent panel: search input, branch selector, answer + commit summary list
-- File history lookup: path input → commit list
-- Debug Agent panel: error message + stack trace input → incident analysis + root cause
-- Conversation history: session-persisted turns with per-turn agent attribution
-- Execution metrics: response time badge per workflow run
-- All AI responses show: participating_agents, citations, graph_path, confidence, retrieval_mode, suggested_actions
+- Agent registry grid (one card per agent: name, description, capabilities)
+- Workflow panel: question input + agent multi-select + dry-run button
+- Dry-run preview: shows `WorkflowPlanPreview` before execution — clearly labelled "Preview — not executed"
+- Workflow execution: full response with `WorkflowTimeline` and all explainability fields
+- Repository Agent panel: question input, branch selector, answer + commit summary list, file history lookup
+- Debug Agent panel: error message + stack trace textarea, incident analysis output
+- Conversation history: session-persistent turns, per-turn agent attribution via `ParticipatingAgentsList`
+- Execution metrics badge: response time per workflow run
 
 ### Backend APIs Required
 
@@ -1128,9 +1209,9 @@ When the backend migrates to LangGraph, only `agentsService.ts` changes — the 
 |---|---|
 | `GET /api/v1/agents/` | List agents |
 | `GET /api/v1/agents/{name}` | Agent detail |
-| `POST /api/v1/agents/workflow/plan` | Dry-run |
-| `POST /api/v1/agents/workflow/run` | Execute |
-| `POST /api/v1/agents/repository/search` | Repository search |
+| `POST /api/v1/agents/workflow/plan` | Dry-run planner |
+| `POST /api/v1/agents/workflow/run` | Execute workflow |
+| `POST /api/v1/agents/repository/search` | Repository Agent search |
 | `GET /api/v1/agents/repository/branches` | Branch list |
 | `POST /api/v1/agents/repository/file-history` | File history |
 | `POST /api/v1/agents/debug/analyze` | Debug analysis |
@@ -1145,6 +1226,7 @@ When the backend migrates to LangGraph, only `agentsService.ts` changes — the 
 | `WorkflowPanel` | `features/agents/WorkflowPanel.tsx` |
 | `WorkflowPlanPreview` | `features/agents/WorkflowPlanPreview.tsx` |
 | `WorkflowTimeline` | `features/agents/WorkflowTimeline.tsx` |
+| `WorkflowStepCard` | `features/agents/WorkflowStepCard.tsx` |
 | `RepositoryAgentPanel` | `features/agents/RepositoryAgentPanel.tsx` |
 | `BranchSelector` | `features/agents/BranchSelector.tsx` |
 | `CommitSummaryList` | `features/agents/CommitSummaryList.tsx` |
@@ -1153,80 +1235,74 @@ When the backend migrates to LangGraph, only `agentsService.ts` changes — the 
 | `ConversationHistoryList` | `features/agents/ConversationHistoryList.tsx` |
 | `ConversationTurn` | `features/agents/ConversationTurn.tsx` |
 | `ExecutionMetricsBadge` | `features/agents/ExecutionMetricsBadge.tsx` |
-
-*Reused from 8.4:* `CitationPanel`, `ConfidenceBadge`, `RetrievalModeTag`, `GraphPathBreadcrumb`, `ParticipatingAgentsList`, `SuggestedActionsBar`, `MarkdownRenderer`.
+| *Explainability (all)* | `features/explainability/` — imported, not redefined |
 
 ### Folder Additions
 
 ```
-features/
-  agents/
-services/
-  agentsService.ts
-types/
-  agents.ts
+features/agents/
+services/agentsService.ts
+stores/agentStore.ts
+types/agents.ts
 ```
 
 ### State Management
 
-- **React Query** — `useQuery(['agents'])` for registry. `useMutation` for workflow/plan, workflow/run, repository search, debug analyze.
-- **Zustand** — `agentStore`: `activePanel`, `selectedAgentName`, `workflowHistory[]`.
-- **React Hook Form** — workflow form, repository search form, debug form.
+- React Query: `useQuery(['agents'])` for registry (staleTime 5min). `useMutation` for workflow/plan, workflow/run, repository search, debug analyze.
+- Zustand `agentStore`: `activePanel`, `selectedAgentName`, `workflowHistory[]` (capped at 20 turns).
+- React Hook Form: workflow form, repository search form, debug form.
 
 ### Routing
 
-| Route | Component |
+| Route | Component / Behavior |
 |---|---|
-| `/agents` | `AgentsPage` with tab navigation |
-| `/agents/workflow` | `WorkflowPanel` (tab within `AgentsPage`) |
-| `/agents/repository` | `RepositoryAgentPanel` (tab) |
-| `/agents/debug` | `DebugAgentPanel` (tab) |
+| `/agents` | `AgentsPage` with Tabs for Registry / Workflow / Repository / Debug |
+| `/agents/workflow` | Workflow tab active |
+| `/agents/repository` | Repository tab active |
+| `/agents/debug` | Debug tab active |
 
 ### Accessibility
 
-- Agent capability badges: text labels, not icons only.
-- Workflow plan preview: `aria-label="Dry run plan"`, clearly marked with a "Preview only — not executed" label.
-- Conversation history: `role="log"`, each turn has visible agent name text.
-- Stack trace `<textarea>`: `aria-label="Stack trace"`, `spellcheck="false"`, monospace font.
-- Suggested actions: rendered as `<button>` elements — never as plain text.
-- Dry-run/execute distinction is communicated textually, not color-only.
+- Dry-run preview: labelled "Preview only — not yet executed" in visible text + `aria-label`.
+- Stack trace textarea: `aria-label="Stack trace"`, `spellcheck="false"`.
+- `ConversationHistoryList`: `role="log"`, each turn has visible agent name text.
+- Suggested actions: `<button>` only — never `<a href>` from API data.
+- Workflow timeline: `role="list"`, each step `role="listitem"` with status in visible text.
 
 ### Security
 
-- `suggested_actions` rendered as buttons only — not as anchor `href` from API response.
-- Stack trace content is plain text input — never rendered as HTML.
-- Agent names from registry displayed as text — not interpolated into URLs or API calls without validation.
+- `suggested_actions` always rendered as `<button>` — never anchor `href` from API response data.
+- Stack trace content is plain text textarea input — never rendered as HTML.
+- Agent names from registry displayed as text — never interpolated into URLs without validation.
 
 ### Testing Checklist
 
-- [ ] `AgentRegistryGrid`: loads and displays agent cards with MSW mock
-- [ ] `WorkflowPanel`: dry-run returns plan preview; execute returns full response
-- [ ] `WorkflowTimeline`: renders planned steps as ordered list
-- [ ] `RepositoryAgentPanel`: search returns answer + commit list
-- [ ] `DebugAgentPanel`: stack trace input produces incident analysis
-- [ ] `ConversationHistoryList`: turns rendered with agent attribution
-- [ ] All explainability fields rendered (citations, confidence, graph path, mode, agents)
-- [ ] Empty state when no agents registered
-- [ ] Error state on API failure
+- [ ] `AgentRegistryGrid` loads and renders agent cards with MSW mock
+- [ ] Dry-run: plan preview renders before execution
+- [ ] Workflow execution: `WorkflowTimeline` renders 6 steps with status indicators
+- [ ] `RepositoryAgentPanel` search returns answer + commit list
+- [ ] `DebugAgentPanel` processes stack trace and shows incident analysis
+- [ ] `ConversationHistoryList` renders turns with agent attribution
+- [ ] All explainability fields render on workflow response
+- [ ] Empty state when no agents registered; error state on API failure
 
 ### Performance
 
-- Agent registry is prefetched after login (`staleTime: 5min`).
-- Workflow history is capped at last 20 turns in `agentStore` to prevent memory growth.
-- `ParsedTraceView` uses virtualized list for large stack traces.
+- Agent registry prefetched after login.
+- `workflowHistory[]` capped at 20 turns in `agentStore`.
+- `ParsedTraceView` uses `react-window` for large stack traces.
 
 ### Validation Checklist
 
-- [ ] Agent registry loads agent cards with capabilities
-- [ ] Dry-run returns plan before execution
+- [ ] Agent registry displays all registered agents
+- [ ] Dry-run returns step plan before execution
 - [ ] Workflow run returns full response with all 6 explainability fields
 - [ ] Repository search returns answer and commit summaries
 - [ ] Branch list loads
 - [ ] File history returns commit list
-- [ ] Debug Agent parses stack trace and returns incidents
+- [ ] Debug Agent returns incident analysis from stack trace
 - [ ] Conversation history shows per-turn agent attribution
-- [ ] Suggested actions are rendered and clickable
-- [ ] Loading and error states exist for every panel
+- [ ] Suggested actions are clickable buttons
 
 ---
 
@@ -1234,112 +1310,48 @@ types/
 
 ### Goal
 
-Validate the complete application end-to-end. Run full test suite. Perform accessibility audit. Validate performance budgets. Complete the development journal.
+Validate the complete application end-to-end. Enforce exit criteria before Sprint 8 is considered complete.
 
 ### Features
 
-- Full test suite run (Vitest + RTL + MSW)
-- Playwright E2E smoke tests (login → dashboard → chat → agents)
-- Lighthouse accessibility audit (target score: ≥ 90)
-- Bundle size analysis (`vite-bundle-visualizer`)
-- Responsive validation on desktop (1440px), laptop (1280px), tablet (768px)
-- Fix all console warnings and TypeScript errors
-- Development journal entry for Sprint 8
-- README update with frontend setup instructions
+- Cross-page integration: navigation between all 5 feature areas works without errors
+- Analytics charts added to Dashboard (memory count by type, scenario activity)
+- Playwright smoke tests: login → dashboard → create memory → chat → graph → agents
+- Lighthouse accessibility audit (target: ≥ 90)
+- Responsive QA: desktop 1440px, laptop 1280px, tablet 768px
+- Error boundary audit: every feature route has a working `<ErrorBoundary>`
+- Loading state audit: every async surface shows skeleton/spinner — no blank content
+- AI explainability audit: every Granite-powered endpoint surface shows all 5 explainability fields
+- Bundle analysis: `vite-bundle-visualizer`, enforce < 500KB initial chunk
+- TypeScript strict audit: `tsc --noEmit` with zero errors
+- Sprint 8 development journal entry
+- README update with frontend setup steps
 
-### Validation Checklist
+### Exit Criteria (Sprint 8 is not complete until all pass)
 
-- [ ] All Vitest tests pass with no failures
-- [ ] No TypeScript errors (`tsc --noEmit`)
-- [ ] No ESLint errors or warnings
-- [ ] Lighthouse accessibility score ≥ 90
-- [ ] Bundle size < 500KB initial chunk
-- [ ] All 6 milestones' validation checklists fully checked
+- [ ] All Vitest unit + component tests pass
+- [ ] `tsc --noEmit` — zero errors
+- [ ] ESLint — zero errors or warnings
+- [ ] Lighthouse accessibility score ≥ 90 on all 6 major routes
+- [ ] Initial JS bundle < 500KB
+- [ ] Playwright smoke tests pass (login → each feature area → logout)
+- [ ] Every AI response surface shows: citations, confidence, retrieval mode, graph path, participating agents
+- [ ] Every async surface shows loading state and error state
+- [ ] Responsive layout validated at 768px, 1280px, 1440px
 - [ ] Sprint 8 journal entry written
-- [ ] README updated with frontend setup steps
 
 ---
 
-## Frontend Security Standards
+## Shared Component Reuse Map
 
-| Area | Policy | Risk |
+| Component / Module | Produced in | Reused in |
 |---|---|---|
-| JWT storage | localStorage (SPA trade-off; document risk) | Medium |
-| Authorization headers | Injected by Axios interceptor; never hardcoded | Low |
-| XSS prevention | All user content rendered as text; AI content through rehype-sanitize | High (mitigated) |
-| Markdown sanitization | rehype-sanitize with strict allow-list schema | High (mitigated) |
-| Suggested actions | Always rendered as `<button>` — never as `href` from API | High (mitigated) |
-| Error boundaries | `ErrorBoundary` wraps each feature route | Low |
-| API secrets | Only `VITE_API_BASE_URL` in env; never expose backend secrets | High |
-| Sensitive logging | Token and user data never logged to console | Medium |
-| Route protection | `AuthGuard` on all routes except `/login` | Medium |
-| Input validation | React Hook Form + Zod schemas on all forms | Medium |
-
----
-
-## Accessibility Standards (WCAG 2.1 AA)
-
-| Requirement | Implementation |
-|---|---|
-| Keyboard navigation | All interactive elements reachable and operable via keyboard |
-| Focus management | Dialogs/drawers trap focus; return focus on close |
-| Screen reader support | Semantic HTML throughout; no div-soup |
-| ARIA labels | All icon-only controls have `aria-label` |
-| Accessible dialogs | `role="dialog"`, `aria-modal="true"`, `aria-labelledby` |
-| Graph fallback | `EntityFallbackTable` always available as accessible alternative |
-| Accessible tables | `<th scope="col">` on all headers |
-| Reduced motion | All Framer Motion animations check `useReducedMotion()` |
-| Color contrast | All text meets 4.5:1 ratio; UI elements meet 3:1 |
-| Live regions | Chat message list and loading states use `aria-live` |
-| Error messages | Linked to inputs via `aria-describedby` |
-| Status indicators | Never communicated by color alone |
-
----
-
-## Frontend Testing Strategy
-
-### Stack
-
-- **Vitest** — unit and component tests
-- **React Testing Library** — component rendering and interaction
-- **MSW (Mock Service Worker)** — API layer mocking (no real network calls in tests)
-- **Playwright** — E2E smoke tests (Milestone 8.6)
-
-### Per-Milestone Test Requirements
-
-| Milestone | Components | Hooks | Stores | Services |
-|---|---|---|---|---|
-| 8.0 | Snapshot each primitive | — | — | — |
-| 8.1 | LoginPage, AuthGuard, HealthWidget | useLogin, useAuth | authStore persist/restore | authService mock |
-| 8.2 | MemoryTable, CreateMemoryDialog | useMemory, usePagination | workspaceStore | memoryService mock |
-| 8.3 | GraphFilterBar, EntityFallbackTable | — | graphStore | entityService mock |
-| 8.4 | CitationPanel, ConfidenceBadge, MarkdownRenderer | — | chatStore | chatService mock |
-| 8.5 | AgentCard, WorkflowTimeline, DebugAgentPanel | — | agentStore | agentsService mock |
-
-### Rules
-
-- Every form has a validation test (valid submit + invalid submit paths).
-- Every list component has: renders with data, renders empty state, renders error state.
-- Every mutation has: success path (cache invalidated), error path (error state shown).
-- Accessibility test on every modal/dialog (focus management, ESC behavior).
-- Never mock `authStore` state directly in component tests — use `msw` to mock the login endpoint and run the real store.
-
----
-
-## Performance Architecture
-
-| Rule | Implementation |
-|---|---|
-| Route lazy loading | All routes use `React.lazy()` + `<Suspense>` |
-| Suspense boundaries | One per feature route; shows `LoadingState` |
-| Code splitting | Vite automatic chunk splitting per lazy route |
-| Memoization | `React.memo` on list item components; `useCallback` on handlers |
-| React Flow optimization | `nodesDraggable: false`, lazy neighbor loading, 500-node cap |
-| Table virtualization | `react-window` for lists > 100 items |
-| Search debounce | 300ms on all search inputs |
-| Bundle optimization | Individual Lucide + Shadcn imports; no barrel files |
-| Image optimization | SVG assets only; no raster images in UI |
-| Query cancellation | AbortController signals on all list queries |
+| All `components/ui/` primitives | 8.0 | All milestones |
+| `components/feedback/` (LoadingState, EmptyState, ErrorState, Skeleton) | 8.0 | All milestones |
+| `lib/api/`, `lib/queryClient.ts` | 8.0 | All service files |
+| `authStore`, `WorkspaceLayout`, `AuthGuard` | 8.1 | All authenticated milestones |
+| `features/explainability/` (all 9 components) | 8.4 | 8.4, 8.5, future 8.x |
+| `MarkdownRenderer`, `CodeBlock` | 8.4 | 8.5 |
 
 ---
 
@@ -1347,83 +1359,56 @@ Validate the complete application end-to-end. Run full test suite. Perform acces
 
 ```
 8.0 Frontend Foundation
-  ↓ (provides: api.ts, queryClient, design system, all UI primitives)
-8.1 Authentication & Dashboard
-  ↓ (provides: authStore, AppShell, AuthGuard, org_id injection)
-  ├── 8.2 Memory Workspace ─────────────────────────────────────┐
-  └── 8.3 Knowledge Graph  (parallel with 8.2, no dependency)   │
-                                                                  ↓
-                                                         8.4 AI Chat & Explainability
-                                                           (depends on: 8.1 always,
-                                                            benefits from: 8.2 for memory)
-                                                                  ↓
-                                                         8.5 Multi-Agent Workspace
-                                                           (reuses: CitationPanel,
-                                                            ConfidenceBadge, GraphPathBreadcrumb
-                                                            from 8.4)
-                                                                  ↓
-                                                         8.6 Final Integration & QA
+  ↓ provides: design system, api client, query client, all primitives
+8.1 Authentication + Dashboard
+  ↓ provides: authStore, WorkspaceLayout, AuthGuard, navigation config
+  ├─── 8.2 Memory Workspace ──────────────────────────────────────────────┐
+  └─── 8.3 Knowledge Graph (parallel with 8.2 — no dependency)           │
+                                                                           ↓
+                                                               8.4 AI Chat + Explainability
+                                                                 provides: explainability module
+                                                                           ↓
+                                                               8.5 Multi-Agent Workspace
+                                                                 reuses: explainability module
+                                                                           ↓
+                                                               8.6 Final Integration + QA
 ```
-
-### Blocking Dependencies
-
-- `8.0` → blocks all milestones (design system, api client)
-- `8.1` → blocks all milestones (authStore, AppShell, AuthGuard)
-- `8.4` → blocks `8.5` (shared explainability components)
-
-### Parallel Opportunities
-
-- `8.2 Memory Workspace` and `8.3 Knowledge Graph` can run in parallel after 8.1 completes.
-- `8.3` has zero dependency on `8.2`.
-
-### Shared Components Reuse Map
-
-| Component | Produced in | Reused in |
-|---|---|---|
-| All UI primitives (Button, Card, Dialog, Table, Badge, etc.) | 8.0 | All |
-| EmptyState, LoadingState, ErrorState, Skeleton | 8.0 | All |
-| api.ts, queryClient.ts | 8.0 | All |
-| authStore, AppShell, AuthGuard | 8.1 | All |
-| CitationPanel, ConfidenceBadge | 8.4 | 8.5 |
-| RetrievalModeTag, GraphPathBreadcrumb | 8.4 | 8.5 |
-| ParticipatingAgentsList, SuggestedActionsBar | 8.4 | 8.5 |
-| MarkdownRenderer, CodeBlock | 8.4 | 8.5 |
 
 ---
 
 ## Sub-Tasks
 
 ### Sub-Task 8.0 — Frontend Foundation
-- **Intent:** Bootstrap Vite + React + TypeScript project, configure Tailwind with design tokens, initialize Shadcn, build all UI primitives, set up test infrastructure.
-- **Expected Outcomes:** `npm run dev` starts. `npm run build` passes TypeScript. All UI primitives have snapshot tests. Design tokens visible in browser DevTools.
+- **Intent:** Bootstrap Vite + React + TypeScript. Configure Tailwind with design tokens. Initialize Shadcn. Assemble provider tree. Build all UI primitives. Set up test infrastructure.
+- **Expected Outcomes:** `npm run dev`, `npm run build`, `npm test` all pass. All primitives render. Design tokens visible in DevTools.
 - **Status:** [ ] pending
 
 ### Sub-Task 8.1 — Authentication & Dashboard
-- **Intent:** Implement login, JWT storage, AuthGuard, AppShell layout, and Dashboard with live backend health/stats widgets.
-- **Expected Outcomes:** Login → Dashboard flow works. AuthGuard redirects unauthenticated users. All 6 dashboard widgets render live data.
+- **Intent:** Login flow, JWT storage, AuthGuard, WorkspaceLayout, navigation config, Dashboard with 6 live widgets.
+- **Expected Outcomes:** Full auth cycle works. Dashboard renders live API data. Sidebar driven by `config/navigation.ts`.
 - **Status:** [ ] pending
 
 ### Sub-Task 8.2 — Memory Workspace
-- **Intent:** Build memory entry list, search, create dialog, scenario navigation, and memory detail drawer.
-- **Expected Outcomes:** Memory entries load, paginate, and are searchable. CRUD operations complete with cache invalidation. Scenario filter works.
+- **Intent:** Memory list, semantic search, scenario navigation, entry drawer with deep-link support, CRUD with cache invalidation.
+- **Expected Outcomes:** All memory operations work. Deep-link `/memory/:id` opens drawer. Copy Link works.
 - **Status:** [ ] pending
 
 ### Sub-Task 8.3 — Knowledge Graph Viewer
-- **Intent:** Build interactive entity/relationship graph with React Flow, inspector panels, filter chips, and accessible fallback table.
-- **Expected Outcomes:** Graph renders entities and relationships. Node click opens inspector. Filter chips work. Fallback table available.
+- **Intent:** React Flow graph with progressive loading, filter chips, entity/relationship inspectors, accessible fallback table.
+- **Expected Outcomes:** Graph renders. Neighbor expansion works. Fallback table accessible. Filters work.
 - **Status:** [ ] pending
 
 ### Sub-Task 8.4 — AI Chat & Explainability Workspace
-- **Intent:** Build RAG chat interface with all 6 explainability fields always visible, plus retrieval explain view and engineering copilot panel.
-- **Expected Outcomes:** Chat sends messages and displays answers with citations, confidence, graph path, retrieval mode, participating agents, suggested actions. Markdown renders safely.
+- **Intent:** RAG chat, explainability module, retrieval inspector, Engineering Copilot. Streaming-ready architecture.
+- **Expected Outcomes:** Chat works. All 5 explainability fields render. Markdown safe. Engineering copilot sub-modes work.
 - **Status:** [ ] pending
 
 ### Sub-Task 8.5 — Multi-Agent Workspace
-- **Intent:** Build agent registry, workflow dry-run + execution, repository agent panel, debug agent panel, conversation history with attribution.
-- **Expected Outcomes:** All agent endpoints integrated. Workflow plan preview works before execution. All explainability fields from 8.4 reused.
+- **Intent:** Agent registry, workflow timeline, repository/debug panels, conversation history with attribution.
+- **Expected Outcomes:** All 8 agent endpoints integrated. Timeline renders 6 steps. Explainability reused from 8.4.
 - **Status:** [ ] pending
 
 ### Sub-Task 8.6 — Final Integration & QA
-- **Intent:** Full test suite, accessibility audit, bundle analysis, responsive validation, journal entry.
-- **Expected Outcomes:** All tests pass. No TypeScript errors. Lighthouse accessibility ≥ 90. Bundle < 500KB initial.
+- **Intent:** Full test suite, accessibility audit, performance validation, Playwright smoke tests, release checklist.
+- **Expected Outcomes:** All exit criteria in Milestone 8.6 pass. Sprint 8 journal entry complete.
 - **Status:** [ ] pending
