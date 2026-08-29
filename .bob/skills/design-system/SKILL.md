@@ -1,30 +1,36 @@
-# Design System
+# Design System Skill
 
 ## Purpose
 
-Build a premium desktop-first AI Operating System interface.
+This skill defines the visual language of TeamMemoryOS.
 
-## Design Principles
+## Principles
 
-* Minimal.
-* Calm.
-* High information density.
-* Consistent spacing.
-* Accessible contrast.
+* Premium desktop-first AI workspace.
+* Minimal visual noise.
+* High information density with generous spacing.
+* Dark-first interface.
+* Accessibility-first.
 
-## Components
+## Component Rules
 
-* Button
-* Card
-* Sidebar
-* Topbar
-* Table
-* Dialog
-* Empty State
-* Loading State
+* Never create duplicate Button/Card/Input components.
+* Always reuse components from `components/ui`.
+* Every component supports loading, disabled, and error states.
+* Icons use Lucide React only.
+* Motion uses Framer Motion with reduced-motion support.
 
-## Rules
+## AI Components
 
-Use reusable components before creating new UI.
+AI-specific UI belongs in `features/explainability`.
 
-Never duplicate styling across features.
+## Styling Rules
+
+* Use Tailwind utility classes.
+* Colors come from CSS variables only.
+* Never hardcode hex colors inside components.
+* Spacing follows the design token scale.
+
+## Accessibility
+
+Every interactive component supports keyboard navigation and visible focus states.
