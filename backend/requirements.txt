@@ -1,9 +1,14 @@
 fastapi
 uvicorn[standard]
-pydantic
+pydantic[email]
 pydantic-settings
 python-dotenv
 httpx
+
+# Auth
+bcrypt
+python-jose[cryptography]
+python-multipart
 
 # Database
 sqlalchemy[asyncio]
