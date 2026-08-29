@@ -94,7 +94,7 @@ class TestListUsers:
         assert isinstance(resp.json(), list)
 
     def test_created_user_in_list(self, client: TestClient, created_user):
-        resp = client.get(f"{API}/")
+        resp = client.get(f"{API}/", params={"limit": 10000})
         ids = [u["id"] for u in resp.json()]
         assert created_user["id"] in ids
 
