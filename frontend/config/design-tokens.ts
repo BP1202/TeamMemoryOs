@@ -438,6 +438,366 @@ export const breakpoints = {
 
 // ─── Composite Export ─────────────────────────────────────────────────────────
 
+// ─── Component Tokens ────────────────────────────────────────────────────────
+
+/**
+ * Component token map.
+ *
+ * Each entry defines the exact design token values that a specific component
+ * variant applies. These are not Tailwind classes — they are the raw values
+ * that Tailwind classes must resolve to.
+ *
+ * Rules:
+ *  - Never hardcode values inside a component. Reference this map or the CSS
+ *    variables derived from it (--component-<name>-<prop>).
+ *  - Every variant maps to tokens already defined above in this file.
+ *  - Adding a new variant means: add here → add CSS vars → update Tailwind.
+ */
+export const componentTokens = {
+
+  // ── Button ─────────────────────────────────────────────────────────────────
+
+  button: {
+    /**
+     * Primary: filled brand background. Main call-to-action.
+     */
+    primary: {
+      bg:           colors.brand.default,
+      bgHover:      colors.brand.hover,
+      bgActive:     colors.brand.muted,
+      bgDisabled:   colors.surface.elevated,
+      text:         '#ffffff',
+      textDisabled: colors.text.muted,
+      border:       'transparent',
+      ring:         colors.brand.ring,
+      shadow:       shadows.glow,
+    },
+
+    /**
+     * Secondary: subtle surface background with visible border. Secondary actions.
+     */
+    secondary: {
+      bg:           colors.surface.elevated,
+      bgHover:      colors.surface.subtle,
+      bgActive:     colors.surface.subtle,
+      bgDisabled:   colors.surface.elevated,
+      text:         colors.text.primary,
+      textDisabled: colors.text.muted,
+      border:       colors.border.default,
+      borderHover:  colors.brand.default,
+      ring:         colors.brand.ring,
+      shadow:       shadows.none,
+    },
+
+    /**
+     * Ghost: transparent background. Tertiary or icon-adjacent actions.
+     */
+    ghost: {
+      bg:           'transparent',
+      bgHover:      colors.surface.subtle,
+      bgActive:     colors.surface.elevated,
+      bgDisabled:   'transparent',
+      text:         colors.text.secondary,
+      textHover:    colors.text.primary,
+      textDisabled: colors.text.muted,
+      border:       'transparent',
+      ring:         colors.brand.ring,
+      shadow:       shadows.none,
+    },
+
+    /**
+     * Destructive: danger-colored. Irreversible actions (delete, revoke).
+     */
+    destructive: {
+      bg:           colors.danger.default,
+      bgHover:      '#f87171',             // danger lightened one step
+      bgActive:     colors.danger.muted,
+      bgDisabled:   colors.surface.elevated,
+      text:         '#ffffff',
+      textDisabled: colors.text.muted,
+      border:       'transparent',
+      ring:         'rgba(239, 68, 68, 0.4)',
+      shadow:       shadows.danger,
+    },
+
+    // Shared across all variants
+    shared: {
+      borderRadius:    radius.md,
+      fontWeight:      typography.fontWeight.medium,
+      fontSizeSm:      typography.fontSize.sm[0],
+      fontSizeMd:      typography.fontSize.base[0],
+      paddingXSm:      spacing[3],
+      paddingYSm:      spacing[1.5],
+      paddingXMd:      spacing[4],
+      paddingYMd:      spacing[2],
+      transitionDuration: animation.durationCSS.medium,
+      transitionEasing:   animation.easing.easeInOut,
+    },
+  },
+
+  // ── Card ───────────────────────────────────────────────────────────────────
+
+  card: {
+    /**
+     * Default: standard surface panel. Most cards use this.
+     */
+    default: {
+      bg:           colors.surface.default,
+      border:       colors.border.default,
+      borderRadius: radius.lg,
+      shadow:       shadows.card,
+      padding:      spacing.cardPadding,
+    },
+
+    /**
+     * Elevated: pops above surrounding content. Dialogs, callout cards.
+     */
+    elevated: {
+      bg:           colors.surface.elevated,
+      border:       colors.border.subtle,
+      borderRadius: radius.lg,
+      shadow:       shadows.md,
+      padding:      spacing.cardPadding,
+    },
+
+    /**
+     * Outline: transparent background with visible border. Secondary cards,
+     * inactive states, selectable items.
+     */
+    outline: {
+      bg:           'transparent',
+      bgHover:      colors.surface.subtle,
+      border:       colors.border.default,
+      borderHover:  colors.brand.default,
+      borderRadius: radius.lg,
+      shadow:       shadows.none,
+      padding:      spacing.cardPadding,
+    },
+  },
+
+  // ── Input ──────────────────────────────────────────────────────────────────
+
+  input: {
+    /**
+     * Default: resting state.
+     */
+    default: {
+      bg:           colors.surface.elevated,
+      border:       colors.border.default,
+      borderRadius: radius.md,
+      text:         colors.text.primary,
+      placeholder:  colors.text.muted,
+      paddingX:     spacing.inputX,
+      paddingY:     spacing.inputY,
+      fontSize:     typography.fontSize.sm[0],
+      shadow:       shadows.none,
+    },
+
+    /**
+     * Focus: keyboard or pointer focus active.
+     */
+    focus: {
+      bg:           colors.surface.elevated,
+      border:       colors.border.focus,
+      ring:         colors.brand.ring,
+      shadow:       shadows.glow,
+    },
+
+    /**
+     * Error: validation failure state.
+     */
+    error: {
+      bg:           colors.surface.elevated,
+      border:       colors.border.danger,
+      ring:         'rgba(239, 68, 68, 0.3)',
+      text:         colors.text.primary,
+      labelText:    colors.danger.default,
+      hintText:     colors.danger.default,
+      shadow:       shadows.danger,
+    },
+
+    /**
+     * Disabled: non-interactive state.
+     */
+    disabled: {
+      bg:           colors.surface.subtle,
+      border:       colors.border.subtle,
+      text:         colors.text.muted,
+      cursor:       'not-allowed',
+    },
+  },
+
+  // ── Badge ──────────────────────────────────────────────────────────────────
+
+  badge: {
+    /**
+     * Success: positive outcome, healthy status.
+     */
+    success: {
+      bg:           colors.success.muted,
+      text:         colors.success.default,
+      border:       colors.success.muted,
+      borderRadius: radius.full,
+    },
+
+    /**
+     * Warning: degraded, needs attention.
+     */
+    warning: {
+      bg:           colors.warning.muted,
+      text:         colors.warning.default,
+      border:       colors.warning.muted,
+      borderRadius: radius.full,
+    },
+
+    /**
+     * Danger: failure, error, destructive state.
+     */
+    danger: {
+      bg:           colors.danger.muted,
+      text:         colors.danger.default,
+      border:       colors.danger.muted,
+      borderRadius: radius.full,
+    },
+
+    /**
+     * Info: neutral informational label.
+     */
+    info: {
+      bg:           colors.info.muted,
+      text:         colors.info.default,
+      border:       colors.info.muted,
+      borderRadius: radius.full,
+    },
+
+    /**
+     * Default: generic / uncategorized label.
+     */
+    default: {
+      bg:           colors.surface.elevated,
+      text:         colors.text.secondary,
+      border:       colors.border.default,
+      borderRadius: radius.full,
+    },
+
+    // Shared across all badge variants
+    shared: {
+      fontWeight:  typography.fontWeight.medium,
+      fontSize:    typography.fontSize.xs[0],
+      paddingX:    spacing[2],
+      paddingY:    spacing[0.5],
+      lineHeight:  '1rem',
+    },
+  },
+
+  // ── AI Explainability Components ───────────────────────────────────────────
+  //
+  // These tokens are used exclusively by features/explainability/ components.
+  // They must never be used inside general UI primitives.
+
+  ai: {
+    /**
+     * Confidence badge — high (score > 0.75).
+     */
+    confidenceHigh: {
+      bg:           colors.confidence.highMuted,
+      text:         colors.confidence.high,
+      border:       colors.confidence.highMuted,
+      icon:         colors.confidence.high,
+      borderRadius: radius.full,
+    },
+
+    /**
+     * Confidence badge — medium (score 0.5–0.75).
+     */
+    confidenceMedium: {
+      bg:           colors.confidence.mediumMuted,
+      text:         colors.confidence.medium,
+      border:       colors.confidence.mediumMuted,
+      icon:         colors.confidence.medium,
+      borderRadius: radius.full,
+    },
+
+    /**
+     * Confidence badge — low (score < 0.5).
+     */
+    confidenceLow: {
+      bg:           colors.confidence.lowMuted,
+      text:         colors.confidence.low,
+      border:       colors.confidence.lowMuted,
+      icon:         colors.confidence.low,
+      borderRadius: radius.full,
+    },
+
+    /**
+     * Retrieval mode tag — semantic (vector similarity only).
+     */
+    retrievalSemantic: {
+      bg:           colors.info.muted,
+      text:         colors.info.default,
+      border:       colors.info.muted,
+      borderRadius: radius.full,
+    },
+
+    /**
+     * Retrieval mode tag — hybrid (vector + knowledge graph).
+     */
+    retrievalHybrid: {
+      bg:           colors.brand.muted,
+      text:         colors.brand.hover,
+      border:       colors.brand.muted,
+      borderRadius: radius.full,
+    },
+
+    /**
+     * Retrieval mode tag — engineering (code-aware copilot).
+     */
+    retrievalEngineering: {
+      bg:           colors.warning.muted,
+      text:         colors.warning.default,
+      border:       colors.warning.muted,
+      borderRadius: radius.full,
+    },
+
+    /**
+     * Citation card surface.
+     */
+    citationCard: {
+      bg:           colors.surface.elevated,
+      border:       colors.border.default,
+      borderLeft:   colors.brand.default,
+      borderLeftWidth: '3px',
+      borderRadius: radius.md,
+      text:         colors.text.primary,
+      metaText:     colors.text.secondary,
+    },
+
+    /**
+     * Graph path breadcrumb item.
+     */
+    graphPathItem: {
+      text:         colors.text.secondary,
+      textActive:   colors.brand.hover,
+      separator:    colors.text.muted,
+      bg:           'transparent',
+      bgActive:     colors.brand.subtle,
+      borderRadius: radius.sm,
+    },
+
+    // Shared across all AI component tokens
+    shared: {
+      fontWeight:  typography.fontWeight.medium,
+      fontSize:    typography.fontSize.xs[0],
+      paddingX:    spacing[2],
+      paddingY:    spacing[0.5],
+    },
+  },
+} as const;
+
+export type ComponentTokens = typeof componentTokens;
+
+// ─── Composite export ─────────────────────────────────────────────────────────
+
 /**
  * Full token registry.
  *
@@ -456,10 +816,11 @@ export const tokens = {
   zIndex,
   animation,
   breakpoints,
+  component: componentTokens,
 } as const;
 
-export type Tokens       = typeof tokens;
-export type ColorTokens  = typeof colors;
+export type Tokens        = typeof tokens;
+export type ColorTokens   = typeof colors;
 export type SpacingTokens = typeof spacing;
 
 export default tokens;

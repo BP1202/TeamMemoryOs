@@ -337,6 +337,135 @@ Desktop-first layout. Design for 1440px, then adapt downward.
 
 ---
 
+## Component Tokens
+
+Component tokens map each UI component variant to its resolved primitive token values. They sit between the raw design tokens (colors, spacing, radius) and the actual component implementation. This intermediate layer means changing a component's visual style requires only a single update — to its component token block — rather than hunting for hardcoded values in JSX.
+
+### Layer Hierarchy
+
+```
+colors.brand.default          ← Primitive token (design-tokens.ts)
+  ↓
+--color-brand-default         ← Primitive CSS variable (tokens.css)
+  ↓
+--btn-primary-bg              ← Component token CSS variable (tokens.css)
+  ↓
+componentTokens.button.primary.bg  ← TypeScript component token (design-tokens.ts)
+  ↓
+className="bg-[var(--btn-primary-bg)]"   ← Component usage
+```
+
+### Button
+
+| Variant | bg | bgHover | text | border | ring | shadow |
+|---|---|---|---|---|---|---|
+| `primary` | `--btn-primary-bg` | `--btn-primary-bg-hover` | white | transparent | brand-ring | glow |
+| `secondary` | `--btn-secondary-bg` | `--btn-secondary-bg-hover` | text-primary | border-default | brand-ring | none |
+| `ghost` | transparent | `--btn-ghost-bg-hover` | text-secondary | transparent | brand-ring | none |
+| `destructive` | `--btn-destructive-bg` | `--btn-destructive-bg-hover` | white | transparent | danger-ring | danger |
+
+All button variants share:
+- `border-radius: var(--btn-border-radius)` → `--radius-md`
+- `font-weight: var(--btn-font-weight)` → `--font-medium`
+- `transition: background var(--btn-transition-duration) var(--btn-transition-easing)`
+
+Disabled state on every variant: `bg-surface-elevated`, `text-text-muted`, `cursor-not-allowed`.
+
+### Card
+
+| Variant | bg | border | shadow | Use for |
+|---|---|---|---|---|
+| `default` | `--card-default-bg` | `--card-default-border` | `--shadow-card` | Most content panels |
+| `elevated` | `--card-elevated-bg` | `--card-elevated-border` | `--shadow-md` | Dialogs, callout cards |
+| `outline` | transparent | `--card-outline-border` | none | Secondary cards, selectable items |
+
+`outline` adds `--card-outline-bg-hover` and `--card-outline-border-hover` on hover for interactive card lists.
+
+### Input
+
+| State | bg | border | ring | shadow |
+|---|---|---|---|---|
+| `default` | `--input-bg` | `--input-border` | — | none |
+| `focus` | `--input-bg` | `--input-focus-border` | `--input-focus-ring` | glow |
+| `error` | `--input-bg` | `--input-error-border` | `--input-error-ring` | danger |
+| `disabled` | `--input-disabled-bg` | `--input-disabled-border` | — | none |
+
+Error state also sets label and hint text to `--input-error-label` / `--input-error-label` (danger color).
+
+### Badge
+
+| Variant | bg CSS var | text CSS var | Use for |
+|---|---|---|---|
+| `success` | `--badge-success-bg` | `--badge-success-text` | Health OK, test pass, high confidence |
+| `warning` | `--badge-warning-bg` | `--badge-warning-text` | Degraded, needs review |
+| `danger` | `--badge-danger-bg` | `--badge-danger-text` | Error, failed, critical |
+| `info` | `--badge-info-bg` | `--badge-info-text` | Neutral labels, metadata |
+| `default` | `--badge-default-bg` | `--badge-default-text` | Uncategorized tags |
+
+All badges share: `border-radius: var(--badge-border-radius)` (→ `--radius-full`), `font-size: var(--badge-font-size)` (→ `--text-xs`), `font-weight: var(--badge-font-weight)` (→ `--font-medium`).
+
+### AI Explainability Component Tokens
+
+> These tokens are **exclusively** for `features/explainability/` components. Never use `--ai-*` variables in general UI primitives.
+
+#### Confidence Badge
+
+| Tier | Score range | bg var | text var | icon var |
+|---|---|---|---|---|
+| `confidenceHigh` | > 0.75 | `--ai-confidence-high-bg` | `--ai-confidence-high-text` | `--ai-confidence-high-icon` |
+| `confidenceMedium` | 0.5–0.75 | `--ai-confidence-medium-bg` | `--ai-confidence-medium-text` | `--ai-confidence-medium-icon` |
+| `confidenceLow` | < 0.5 | `--ai-confidence-low-bg` | `--ai-confidence-low-text` | `--ai-confidence-low-icon` |
+
+All confidence badges share `border-radius: var(--ai-confidence-border-radius)` (→ pill).
+
+The `ConfidenceBadge` component selects the correct tier by comparing the numeric score from the Granite API response:
+
+```typescript
+import { componentTokens } from '@/config/design-tokens';
+
+function getConfidenceTier(score: number) {
+  if (score > 0.75) return componentTokens.ai.confidenceHigh;
+  if (score >= 0.5) return componentTokens.ai.confidenceMedium;
+  return componentTokens.ai.confidenceLow;
+}
+```
+
+#### Retrieval Mode Tag
+
+| Mode | bg var | text var | When used |
+|---|---|---|---|
+| `retrievalSemantic` | `--ai-retrieval-semantic-bg` | `--ai-retrieval-semantic-text` | Vector similarity only |
+| `retrievalHybrid` | `--ai-retrieval-hybrid-bg` | `--ai-retrieval-hybrid-text` | Vector + Knowledge Graph |
+| `retrievalEngineering` | `--ai-retrieval-engineering-bg` | `--ai-retrieval-engineering-text` | Engineering Copilot mode |
+
+#### Citation Card
+
+| Property | CSS var |
+|---|---|
+| Background | `--ai-citation-bg` |
+| Default border | `--ai-citation-border` |
+| Left accent border | `--ai-citation-border-accent` (3px brand-colored left strip) |
+| Text | `--ai-citation-text` |
+| Meta text (score, rank) | `--ai-citation-meta-text` |
+
+#### Graph Path Breadcrumb
+
+| Property | CSS var |
+|---|---|
+| Item text | `--ai-graph-path-text` |
+| Active item text | `--ai-graph-path-text-active` |
+| Separator | `--ai-graph-path-separator` |
+| Active item background | `--ai-graph-path-bg-active` |
+
+### How to Add a New Component Variant
+
+1. Add the variant object to the relevant group in `componentTokens` inside `frontend/config/design-tokens.ts`.
+2. Add the corresponding `--component-*` CSS variables to the Component Tokens block in `frontend/styles/tokens.css`. Reference primitive token vars — never raw hex values.
+3. Document the variant in this section.
+4. Do not modify `tailwind.config.ts` for component tokens — components use `var()` references directly.
+
+---
+
 ## How to Add a New Token
 
 1. Add the value to the appropriate group in `frontend/config/design-tokens.ts`.
@@ -397,11 +526,121 @@ const nodeColor = tokens.colors.entityType[entityType] ?? tokens.colors.entityTy
 
 ---
 
+## Icon Registry
+
+**Source of truth:** [`frontend/config/icons.ts`](../frontend/config/icons.ts)
+
+All Lucide React icons are imported and re-exported through this central registry. Feature components and UI primitives never import from `lucide-react` directly.
+
+### Why a Central Registry
+
+- A single import change updates every usage site when an icon is replaced.
+- Icon groups align 1:1 with domain concepts — `MemoryTypeIcons.DECISION` communicates intent better than a bare `Lightbulb` import.
+- Enforces consistent sizing via `iconSize` constants.
+- Prevents duplicate icon imports across the bundle.
+
+### Importing Icons
+
+```typescript
+// Named group import (preferred)
+import { NavIcons, StatusIcons, AIIcons, iconSize } from '@/config/icons';
+
+<NavIcons.Memory className={iconSize.nav} />
+<StatusIcons.success className={iconSize.button} />
+<AIIcons.confidence className={iconSize.inline} />
+```
+
+### Icon Size Constants
+
+| Key | Tailwind class | Size | Usage |
+|---|---|---|---|
+| `inline` | `h-4 w-4` | 16px | Inline text, table cells, dense lists |
+| `button` | `h-5 w-5` | 20px | Button icons, action triggers |
+| `nav` | `h-5 w-5` | 20px | Sidebar navigation items |
+| `heading` | `h-6 w-6` | 24px | Page headings, empty state icons |
+| `feature` | `h-8 w-8` | 32px | Large decorative icons |
+
+### Navigation Icons
+
+| Key | Icon | Route |
+|---|---|---|
+| `Dashboard` | `LayoutDashboard` | `/` |
+| `Memory` | `Database` | `/memory` |
+| `Graph` | `Network` | `/graph` |
+| `Chat` | `MessageSquare` | `/chat` |
+| `Agents` | `Bot` | `/agents` |
+| `Settings` | `Settings` | `/settings` |
+
+Keys match the route/feature name used in `config/navigation.ts`.
+
+### Memory Type Icons
+
+Keys match `MemoryEntry.memory_type` enum values from the backend exactly.
+
+| Key | Icon | When used |
+|---|---|---|
+| `DECISION` | `Lightbulb` | Engineering or product decision |
+| `INCIDENT` | `AlertTriangle` | Production incident, post-mortem |
+| `DOCUMENTATION` | `BookOpen` | ADR, runbook, reference docs |
+| `CODE` | `Code2` | Code snippet, implementation note |
+| `DISCUSSION` | `MessagesSquare` | Meeting notes, Slack thread |
+
+### Entity Type Icons
+
+Keys match `Entity.entity_type` values from the backend exactly.
+
+| Key | Icon | Entity |
+|---|---|---|
+| `person` | `User` | Human contributor or stakeholder |
+| `technology` | `Cpu` | Framework, language, or tool |
+| `repository` | `GitBranch` | Git repository |
+| `service` | `Server` | Deployed service or microservice |
+| `api` | `Plug` | External API or integration |
+| `pull_request` | `GitPullRequest` | Pull request |
+| `branch` | `GitBranchPlus` | Git branch |
+
+### Status Icons
+
+Always paired with a text label — never used as the sole indicator of status.
+
+| Key | Icon | Meaning |
+|---|---|---|
+| `success` | `CheckCircle2` | Healthy, passed, complete |
+| `warning` | `AlertCircle` | Degraded, needs attention |
+| `error` | `XCircle` | Failed, unavailable |
+| `info` | `Info` | Neutral informational |
+| `pending` | `Clock` | In progress, queued |
+
+### AI Explainability Icons
+
+Used exclusively by `features/explainability/` components. Each icon is paired with the corresponding explainability field from the Granite API response.
+
+| Key | Icon | Paired with |
+|---|---|---|
+| `citation` | `Quote` | `CitationPanel` — memory sources |
+| `confidence` | `BarChart2` | `ConfidenceBadge` — numeric score |
+| `graphPath` | `Waypoints` | `GraphPathPanel` — entity traversal chain |
+| `hybridRetrieval` | `Merge` | `RetrievalModeTag` — hybrid mode |
+| `granite` | `Sparkles` | IBM Granite model attribution |
+
+### How to Add a New Icon
+
+1. Find the icon name at [lucide.dev](https://lucide.dev).
+2. Import it at the top of `frontend/config/icons.ts`.
+3. Add it to the appropriate group constant, or to `UtilityIcons` if it is general-purpose.
+4. Export any new type key if the group gains a new entry (e.g. `AIIconKey`).
+5. Document the addition in this section.
+
+Never add a Lucide import directly inside a component file.
+
+---
+
 ## Files Reference
 
 | File | Purpose |
 |---|---|
 | `frontend/config/design-tokens.ts` | Single source of truth — TypeScript constants |
+| `frontend/config/icons.ts` | Central icon registry — all Lucide imports |
 | `frontend/styles/tokens.css` | CSS custom properties for runtime theming |
 | `frontend/tailwind.config.ts` | Tailwind theme extension consuming tokens |
 | `docs/frontend/DESIGN_SYSTEM.md` | This document — usage guide |
