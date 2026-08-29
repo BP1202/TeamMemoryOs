@@ -9,16 +9,23 @@ Orchestrates the complete end-to-end pipeline:
   4. Granite inference    — send the prompt to the configured generation provider.
   5. Response formatting  — return a structured ``ChatResponse`` dataclass.
 
+When ``use_hybrid=True`` the retrieval stage is replaced by the five-stage
+HybridRetriever (semantic + entity graph + memory links).  All other stages
+are unchanged — the same prompt builder and Granite provider are used.
+
 No LangChain.  Each step is a direct function call.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from app.core.settings import settings
+from app.graph.explanation_builder import RetrievalExplanation, build_retrieval_explanation
+from app.graph.hybrid_retriever import HybridResult, HybridRetriever
 from app.memory.embedding_provider import EmbeddingProvider, StubEmbeddingProvider
 from app.memory.generation_provider import GenerationProvider, get_generation_provider
 from app.memory.prompt_builder import build_prompt
@@ -35,12 +42,17 @@ class ChatResponse:
         citations:              Brief citation strings for each retrieved memory.
         retrieved_memory_count: Number of memory entries that were retrieved.
         provider_used:          Identifier of the generation provider that ran.
+        retrieval_mode:         'semantic' or 'hybrid'.
+        explanation:            Full retrieval explanation (populated when
+                                use_hybrid=True, else None).
     """
 
     answer: str
     citations: list[str] = field(default_factory=list)
     retrieved_memory_count: int = 0
     provider_used: str = "unknown"
+    retrieval_mode: str = "semantic"
+    explanation: RetrievalExplanation | None = None
 
 
 def run_rag(
@@ -51,6 +63,7 @@ def run_rag(
     scenario_id: UUID | None = None,
     embedding_provider: EmbeddingProvider | None = None,
     generation_provider: GenerationProvider | None = None,
+    use_hybrid: bool = False,
 ) -> ChatResponse:
     """Execute the full RAG pipeline and return a ``ChatResponse``.
 
@@ -72,22 +85,39 @@ def run_rag(
     # ------------------------------------------------------------------ #
     # 1 + 2: Retrieve top-k memories and build context block              #
     # ------------------------------------------------------------------ #
-    rag_ctx = build_rag_context(
-        db=db,
-        query=question,
-        organization_id=organization_id,
-        provider=emb_provider,
-        top_k=top_k,
-        scenario_id=scenario_id,
-    )
+    retrieval_mode = "semantic"
+    hybrid_results: list[HybridResult] = []
+    if use_hybrid:
+        retrieval_mode = "hybrid"
+        retriever = HybridRetriever(
+            db=db,
+            organization_id=organization_id,
+            embedding_provider=emb_provider,
+            top_k=top_k,
+        )
+        hybrid_results = retriever.retrieve(question)
+        retrieved_entries = [r.memory for r in hybrid_results]
+        from app.memory.rag_context import _format_context
+        context_text = _format_context(question, retrieved_entries)
+    else:
+        rag_ctx = build_rag_context(
+            db=db,
+            query=question,
+            organization_id=organization_id,
+            provider=emb_provider,
+            top_k=top_k,
+            scenario_id=scenario_id,
+        )
+        retrieved_entries = rag_ctx.entries
+        context_text = rag_ctx.context_text
 
     # ------------------------------------------------------------------ #
     # 3: Assemble the prompt                                               #
     # ------------------------------------------------------------------ #
     prompt = build_prompt(
         question=question,
-        context_text=rag_ctx.context_text,
-        entries=rag_ctx.entries,
+        context_text=context_text,
+        entries=retrieved_entries,
         max_chars=settings.GRANITE_MAX_PROMPT_CHARS,
     )
 
@@ -105,13 +135,26 @@ def run_rag(
     # ------------------------------------------------------------------ #
     # 5: Build response citations                                          #
     # ------------------------------------------------------------------ #
-    citations = _build_citation_strings(rag_ctx.entries)
+    citations = _build_citation_strings(retrieved_entries)
+
+    # Build explanation only in hybrid mode (requires graph queries)
+    explanation: RetrievalExplanation | None = None
+    if use_hybrid and hybrid_results:
+        explanation = build_retrieval_explanation(
+            question=question,
+            hybrid_results=hybrid_results,
+            db=db,
+            organization_id=organization_id,
+            retrieval_mode=retrieval_mode,
+        )
 
     return ChatResponse(
         answer=answer,
         citations=citations,
-        retrieved_memory_count=len(rag_ctx.entries),
+        retrieved_memory_count=len(retrieved_entries),
         provider_used=gen_provider.provider_name,
+        retrieval_mode=retrieval_mode,
+        explanation=explanation,
     )
 
 
