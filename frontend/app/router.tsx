@@ -29,6 +29,7 @@ import { CommandPalette } from '@components/CommandPalette';
 
 const LoginPage     = lazy(() => import('@features/auth/LoginPage').then((m) => ({ default: m.LoginPage })));
 const DashboardPage = lazy(() => import('@features/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })));
+const MemoryPage    = lazy(() => import('@features/memory/MemoryPage').then((m) => ({ default: m.MemoryPage })));
 
 // ─── Route fallback ───────────────────────────────────────────────────────
 
@@ -67,6 +68,24 @@ function InnerRouter() {
               element={
                 <RouteSuspense>
                   <DashboardPage />
+                </RouteSuspense>
+              }
+            />
+            {/* Memory Workspace */}
+            <Route
+              path="/memory"
+              element={
+                <RouteSuspense>
+                  <MemoryPage />
+                </RouteSuspense>
+              }
+            />
+            {/* Deep-link to a memory entry */}
+            <Route
+              path="/memory/:memoryId"
+              element={
+                <RouteSuspense>
+                  <MemoryPage />
                 </RouteSuspense>
               }
             />

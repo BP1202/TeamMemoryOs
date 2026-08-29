@@ -22,12 +22,10 @@ export interface PaginatedResponse<T> {
 
 // ─── Common backend enums ──────────────────────────────────────────────────
 
-export type MemoryType =
-  | 'DECISION'
-  | 'INCIDENT'
-  | 'DOCUMENTATION'
-  | 'CODE'
-  | 'DISCUSSION';
+// MemoryType is defined in types/memory.ts (mirrors backend enum).
+// Re-exported here for backward compatibility.
+import type { MemoryType } from './memory';
+export type { MemoryType };
 
 export type EntityType =
   | 'person'

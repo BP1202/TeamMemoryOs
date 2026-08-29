@@ -28,3 +28,16 @@ export {
   DialogDescription,
   DialogFooter,
 } from './Dialog';
+export {
+  Drawer,
+  DrawerTrigger,
+  DrawerPortal,
+  DrawerClose,
+  DrawerOverlay,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+  DrawerBody,
+  DrawerFooter,
+} from './Drawer';

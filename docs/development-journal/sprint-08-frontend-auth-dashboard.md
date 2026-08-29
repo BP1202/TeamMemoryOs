@@ -94,3 +94,62 @@
 - `QuickActionsGrid`: `role="list"` / `role="listitem"`, disabled items have `aria-label` noting "coming soon".
 
 **Status:** ✅ Complete
+
+---
+
+## Entry 03 — Memory Workspace (Sprint 8.2)
+
+**Task:** Implement the complete Memory Workspace — paginated table, semantic search, Create Memory drawer, Memory Detail drawer, Scenario list with filters, Create Scenario dialog, and all loading/empty/error states.
+
+**Branch:** `feat/frontend-ai-workspace`
+**Date:** 2025-01-09
+
+**Problem:** The `/memory` route did not exist. No memory or scenario services, types, store, or feature components existed. The backend MemoryType enum (lowercase: `decision`, `context`, `artifact`, `insight`, `discussion`) was also misaligned with the placeholder uppercase values in `types/api.ts`.
+
+**Solution:**
+
+### Types
+- `types/memory.ts` (new) — `MemoryEntry`, `MemoryEntryCreate`, `Scenario`, `ScenarioCreate`, `MemorySearchRequest`, `MemorySearchResult`, `MemoryFilters`. `MemoryType` enum matches backend exactly (lowercase values).
+- `types/api.ts` — Replaced inline uppercase `MemoryType` union with re-export from `types/memory.ts`.
+
+### Services
+- `services/memoryService.ts` (new) — `listMemoryEntries`, `getMemoryEntry`, `createMemoryEntry`, `searchMemoryEntries`.
+- `services/scenarioService.ts` (new) — `listScenarios`, `createScenario`.
+- `services/index.ts` — Updated barrel to export new service functions.
+
+### Store
+- `stores/memoryStore.ts` (new) — Zustand store for drawer state (`isDetailDrawerOpen`, `isCreateDrawerOpen`, `selectedMemoryId`) and client-side filters (`memoryType`, `scenarioId`, `search`). No API response data stored.
+
+### UI Primitive
+- `components/ui/Drawer.tsx` (new) — Slide-in drawer built on Radix UI Dialog. Full accessibility: focus trap, ESC, `aria-modal`, `aria-labelledby`, portal.
+- `components/ui/index.ts` — Added Drawer exports.
+
+### Feature Components
+- `features/memory/MemoryTypeBadge.tsx` — Badge with icon for each MemoryType.
+- `features/memory/MemoryTableSkeleton.tsx` — Skeleton loading rows for table.
+- `features/memory/MemoryTable.tsx` — Keyboard-navigable table with row click → detail drawer.
+- `features/memory/MemorySearchBar.tsx` — Debounced search input (300ms) with `role="search"`.
+- `features/memory/MemoryDetailDrawer.tsx` — Drawer showing full memory detail with deep-link support (`/memory/:memoryId`).
+- `features/memory/CreateMemoryDrawer.tsx` — React Hook Form drawer; validates required content; invalidates cache on success.
+- `features/memory/ScenarioList.tsx` — Scenario filter chips from React Query; loading/error/empty states.
+- `features/memory/CreateScenarioDialog.tsx` — Dialog form; validates name; invalidates scenario cache on success.
+- `features/memory/MemoryPage.tsx` — Full page orchestration with client-side filter+search, all four states (loading/empty/filtered-empty/data).
+
+### Router
+- `app/router.tsx` — Added `/memory` and `/memory/:memoryId` lazy routes inside AuthGuard.
+
+### Tests (MSW + Vitest + RTL)
+- `tests/mocks/handlers.ts` — Added full MemoryEntry/Scenario fixture shapes and handlers for all 6 new endpoints (list, get, create, search, scenario list, create scenario).
+- `features/memory/MemoryPage.test.tsx` — 24 tests: data state, loading, empty (two cases), error+retry, search, type filter, detail drawer open/close/content, create memory success/failure/validation, scenario dialog success/failure/validation, scenario filter.
+
+**Validation:**
+- `tsc --noEmit` → 0 errors
+- `vitest run` → 86/86 tests pass (24 new)
+- `vite build` → Clean production build, MemoryPage chunk 24.04 kB gzipped to 6.36 kB
+
+**Security:** Memory content rendered as plain `whitespace-pre-wrap` text — never innerHTML. `org_id` from auth store only. IDs not exposed in URL for API calls.
+
+**Accessibility:** Table `role="table"` + keyboard navigation (Enter/Space activates row). Drawer focus trap + ESC + `aria-modal`. Forms: all labels linked via `htmlFor`, errors via `aria-describedby`. Search `role="search"`. Scenario chips `aria-pressed`.
+
+**Status:** ✅ Complete
+
