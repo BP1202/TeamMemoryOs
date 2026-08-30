@@ -43,6 +43,9 @@ import {
   Plug,
   GitPullRequest,
   GitBranchPlus,
+  FileCode2,
+  Siren,
+  Webhook,
 
   // Status
   CheckCircle2,
@@ -160,26 +163,55 @@ export const MemoryTypeIcons = {
  * Keys match backend Entity.entity_type values.
  */
 export const EntityTypeIcons = {
-  /** Human contributor or stakeholder */
+  /** Human contributor or stakeholder — legacy lowercase key */
   person: User,
 
-  /** Technology, framework, language, or tool */
+  /** Technology, framework, language, or tool — legacy lowercase key */
   technology: Cpu,
 
-  /** Git repository */
+  /** Git repository — legacy lowercase key */
   repository: GitBranch,
 
-  /** Deployed service or microservice */
+  /** Deployed service or microservice — legacy lowercase key */
   service: Server,
 
-  /** External API or integration */
+  /** External API or integration — legacy lowercase key */
   api: Plug,
 
-  /** Pull request */
+  /** Pull request — legacy lowercase key */
   pull_request: GitPullRequest,
 
-  /** Git branch */
+  /** Git branch — legacy lowercase key */
   branch: GitBranchPlus,
+
+  // ── Uppercase keys matching backend EntityType enum ──────────────────────
+
+  /** Human contributor (backend: PERSON) */
+  PERSON: User,
+
+  /** Git repository (backend: REPOSITORY) */
+  REPOSITORY: GitBranch,
+
+  /** Source file (backend: FILE) */
+  FILE: FileCode2,
+
+  /** Deployed service (backend: SERVICE) */
+  SERVICE: Server,
+
+  /** Technology/framework (backend: TECHNOLOGY) */
+  TECHNOLOGY: Cpu,
+
+  /** Incident / outage (backend: INCIDENT) */
+  INCIDENT: Siren,
+
+  /** Pull request (backend: PULL_REQUEST) */
+  PULL_REQUEST: GitPullRequest,
+
+  /** Git branch (backend: BRANCH) */
+  BRANCH: GitBranchPlus,
+
+  /** API endpoint (backend: API_ENDPOINT) */
+  API_ENDPOINT: Webhook,
 } as const satisfies Record<string, LucideIcon>;
 
 // ─── Status Icons ─────────────────────────────────────────────────────────────

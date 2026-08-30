@@ -13,3 +13,9 @@ export {
   searchMemoryEntries,
 } from './memoryService';
 export { listScenarios, createScenario } from './scenarioService';
+export { listEntities, getEntity, getEntitiesForMemory } from './entityService';
+export {
+  getRelationship,
+  listOutgoingRelationships,
+  listNeighbors,
+} from './relationshipService';

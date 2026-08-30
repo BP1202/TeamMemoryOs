@@ -12,6 +12,7 @@ import { http, HttpResponse } from 'msw';
 import type { User, LoginResponse } from '@typedefs/auth';
 import type { HealthResponse, DbHealthResponse } from '@typedefs/api';
 import type { MemoryEntry, Scenario } from '@typedefs/memory';
+import type { Entity, Relationship, Neighbor } from '@typedefs/graph';
 
 const BASE = 'http://localhost:8000';
 
@@ -109,6 +110,58 @@ export const mockAgentList = {
   agents: [{ name: 'repository_agent' }, { name: 'debug_agent' }],
   total: 2,
 };
+
+// ─── Entity + Relationship fixtures ────────────────────────────────────────
+
+export const mockEntities: Entity[] = [
+  {
+    id:              'ent-01',
+    organization_id: 'org-01',
+    entity_type:     'SERVICE',
+    name:            'AuthService',
+    description:     'Handles authentication and JWT issuance.',
+    created_at:      '2024-01-01T00:00:00Z',
+    updated_at:      '2024-01-01T00:00:00Z',
+  },
+  {
+    id:              'ent-02',
+    organization_id: 'org-01',
+    entity_type:     'TECHNOLOGY',
+    name:            'PostgreSQL',
+    description:     'Primary relational database.',
+    created_at:      '2024-01-02T00:00:00Z',
+    updated_at:      '2024-01-02T00:00:00Z',
+  },
+  {
+    id:              'ent-03',
+    organization_id: 'org-01',
+    entity_type:     'PERSON',
+    name:            'Alice Engineer',
+    description:     null,
+    created_at:      '2024-01-03T00:00:00Z',
+    updated_at:      '2024-01-03T00:00:00Z',
+  },
+];
+
+export const mockRelationships: Relationship[] = [
+  {
+    id:                'rel-01',
+    organization_id:   'org-01',
+    source_entity_id:  'ent-01',
+    target_entity_id:  'ent-02',
+    relationship_type: 'DEPENDS_ON',
+    created_at:        '2024-01-01T00:00:00Z',
+  },
+];
+
+export const mockNeighbors: Neighbor[] = [
+  {
+    entity:            mockEntities[1],
+    relationship_type: 'DEPENDS_ON',
+    relationship_id:   'rel-01',
+    direction:         'outgoing',
+  },
+];
 
 // ─── Handlers ─────────────────────────────────────────────────────────────
 
@@ -216,5 +269,43 @@ export const handlers = [
   // GET /api/v1/agents/
   http.get(`${BASE}/api/v1/agents/`, () => {
     return HttpResponse.json(mockAgentList, { status: 200 });
+  }),
+
+  // ── Entity handlers ────────────────────────────────────────────────────
+
+  // GET /api/v1/entities/organization/:orgId
+  http.get(`${BASE}/api/v1/entities/organization/:orgId`, () => {
+    return HttpResponse.json(mockEntities, { status: 200 });
+  }),
+
+  // GET /api/v1/entities/memory/:memoryId
+  http.get(`${BASE}/api/v1/entities/memory/:memoryId`, () => {
+    return HttpResponse.json([mockEntities[0]], { status: 200 });
+  }),
+
+  // GET /api/v1/entities/:id
+  http.get(`${BASE}/api/v1/entities/:id`, ({ params }) => {
+    const entity = mockEntities.find((e) => e.id === params.id);
+    if (!entity) return HttpResponse.json({ detail: 'Not found' }, { status: 404 });
+    return HttpResponse.json(entity, { status: 200 });
+  }),
+
+  // ── Relationship handlers ──────────────────────────────────────────────
+
+  // GET /api/v1/relationships/entity/:id/outgoing
+  http.get(`${BASE}/api/v1/relationships/entity/:id/outgoing`, () => {
+    return HttpResponse.json(mockRelationships, { status: 200 });
+  }),
+
+  // GET /api/v1/relationships/entity/:id/neighbors
+  http.get(`${BASE}/api/v1/relationships/entity/:id/neighbors`, () => {
+    return HttpResponse.json(mockNeighbors, { status: 200 });
+  }),
+
+  // GET /api/v1/relationships/:id
+  http.get(`${BASE}/api/v1/relationships/:id`, ({ params }) => {
+    const rel = mockRelationships.find((r) => r.id === params.id);
+    if (!rel) return HttpResponse.json({ detail: 'Not found' }, { status: 404 });
+    return HttpResponse.json(rel, { status: 200 });
   }),
 ];

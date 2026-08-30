@@ -41,3 +41,10 @@ export {
   DrawerBody,
   DrawerFooter,
 } from './Drawer';
+export {
+  TooltipProvider,
+  Tooltip,
+  TooltipTrigger,
+  TooltipPortal,
+  TooltipContent,
+} from './Tooltip';

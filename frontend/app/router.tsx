@@ -30,6 +30,7 @@ import { CommandPalette } from '@components/CommandPalette';
 const LoginPage     = lazy(() => import('@features/auth/LoginPage').then((m) => ({ default: m.LoginPage })));
 const DashboardPage = lazy(() => import('@features/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 const MemoryPage    = lazy(() => import('@features/memory/MemoryPage').then((m) => ({ default: m.MemoryPage })));
+const GraphPage     = lazy(() => import('@features/graph/GraphPage').then((m) => ({ default: m.GraphPage })));
 
 // ─── Route fallback ───────────────────────────────────────────────────────
 
@@ -86,6 +87,15 @@ function InnerRouter() {
               element={
                 <RouteSuspense>
                   <MemoryPage />
+                </RouteSuspense>
+              }
+            />
+            {/* Knowledge Graph Workspace */}
+            <Route
+              path="/graph"
+              element={
+                <RouteSuspense>
+                  <GraphPage />
                 </RouteSuspense>
               }
             />

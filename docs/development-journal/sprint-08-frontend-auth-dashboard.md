@@ -153,3 +153,73 @@
 
 **Status:** ✅ Complete
 
+
+---
+
+## Entry 04 — Knowledge Graph Workspace (Sprint 8.3)
+
+**Task:** Implement the complete Knowledge Graph Workspace — interactive React Flow canvas, custom nodes and edges, entity inspector drawer, search/filter, neighbor expansion, accessible fallback table, legend, minimap and controls.
+
+**Branch:** `feat/frontend-ai-workspace`
+**Date:** 2025-01-09
+
+**Problem:** The `/graph` route did not exist. No entity or relationship services, types, store, or feature components existed. React Flow (`@xyflow/react`) was not installed. The icon registry was missing INCIDENT, FILE, and API_ENDPOINT entity type icons.
+
+**Solution:**
+
+### Package
+- Installed `@xyflow/react ^12.11.5`.
+
+### Types
+- `types/graph.ts` (new) — `Entity`, `Relationship`, `Neighbor`, `EntityType` (UPPERCASE, mirrors backend), `RelationshipType` (UPPERCASE), `ENTITY_TYPE_COLORS`, `ENTITY_TYPE_LABELS`, `GraphFilters`.
+- `types/index.ts` — Added graph type exports with explicit named re-exports to avoid ambiguous `EntityType` collision with `types/api.ts`.
+
+### Services
+- `services/entityService.ts` (new) — `listEntities`, `getEntity`, `getEntitiesForMemory`.
+- `services/relationshipService.ts` (new) — `getRelationship`, `listOutgoingRelationships`, `listNeighbors`.
+
+### Store
+- `stores/graphStore.ts` (new) — Zustand store for selected entity, expanded node IDs (array, not Set for JSON safety), active filters.
+
+### UI Primitives
+- `components/ui/Tooltip.tsx` (new) — Radix UI Tooltip wrapper.
+- `config/icons.ts` — Added `FileCode2`, `Siren`, `Webhook` icons; added uppercase `EntityType` keys (`PERSON`, `REPOSITORY`, `FILE`, `SERVICE`, `TECHNOLOGY`, `INCIDENT`, `PULL_REQUEST`, `BRANCH`, `API_ENDPOINT`) to `EntityTypeIcons` registry.
+
+### Feature Components
+| File | Purpose |
+|---|---|
+| `EntityNode.tsx` | Custom React Flow node — icon, name, type label, color border |
+| `RelationshipEdge.tsx` | Custom React Flow edge — relationship type label, arrow marker |
+| `GraphLegend.tsx` | Color legend for all entity types |
+| `GraphSearchBar.tsx` | Debounced search (300ms) with `role="search"` |
+| `EntityInspectorDrawer.tsx` | Entity detail drawer — description, metadata, expand neighbors |
+| `GraphFallbackTable.tsx` | Accessible list/table fallback — keyboard navigable rows |
+| `GraphCanvas.tsx` | React Flow canvas — custom nodes/edges, MiniMap, Controls, Background |
+| `GraphPage.tsx` | Full page — toolbar, canvas, accessible fallback, entity inspector |
+
+### Key Architectural Decisions
+- React Flow data typing: `@xyflow/react` v12 `NodeProps` uses `Record<string, unknown>` for data — cast via `as unknown as EntityNodeData` at component boundary to avoid TypeScript constraint violations.
+- Progressive loading: entity list loaded once; neighbor expansion lazy-loads via `listNeighbors` query per expanded entity.
+- Filter consistency: client-side filter computed in `GraphPage` and passed to both `GraphCanvas` (visual) and `GraphFallbackTable` (accessible), keeping both surfaces in sync.
+- React Flow mock in tests: mocked `@xyflow/react` at module level in test file to avoid jsdom ResizeObserver limitations; all behavior tested through accessible fallback table and inspector drawer.
+
+### Router
+- `app/router.tsx` — Added `/graph` lazy route inside `AuthGuard`.
+
+### Tests (MSW + Vitest + RTL)
+- `tests/mocks/handlers.ts` — Added entity/relationship fixtures (`mockEntities`, `mockRelationships`, `mockNeighbors`) and handlers for all 6 new endpoints.
+- `features/graph/GraphPage.test.tsx` — 16 tests: data state (entities in table, count), loading state, empty state, error + retry, entity row selection → drawer, drawer content/ESC/expand neighbors, search filter, entity type filter, reset graph.
+
+**Validation:**
+- `tsc --noEmit` → 0 errors
+- `vitest run` → **102/102 tests pass** (16 new tests in Sprint 8.3)
+- `vite build` → Clean build — GraphPage 203 kB (65 kB gzip, includes React Flow bundle)
+
+**Security:** No raw HTML rendering anywhere. All entity content is plain text. No backend mutations from graph interactions. Org isolation: `listNeighbors` requires `organization_id` query param — injected from auth store.
+
+**Accessibility:** `role="application"` on canvas. Fallback table uses `role="table"` with keyboard navigation (Enter/Space activates row). Entity inspector drawer: focus trap, `aria-modal`, ESC, `aria-labelledby`. Search: `role="search"` wrapper. Entity type filter: `role="group"` + `aria-label`. Legend: `role="list"`. GraphLegend items: `role="listitem"`.
+
+**Performance:** Lazy-loaded React Flow canvas via `React.lazy`. `useMemo` for nodes/edges arrays. Progressive neighbor loading (one expanded entity at a time). Client-side filter computed in `GraphPage` and shared with both canvas and fallback table.
+
+**Status:** ✅ Complete
+
