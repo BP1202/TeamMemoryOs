@@ -31,6 +31,7 @@ const LoginPage     = lazy(() => import('@features/auth/LoginPage').then((m) => 
 const DashboardPage = lazy(() => import('@features/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 const MemoryPage    = lazy(() => import('@features/memory/MemoryPage').then((m) => ({ default: m.MemoryPage })));
 const GraphPage     = lazy(() => import('@features/graph/GraphPage').then((m) => ({ default: m.GraphPage })));
+const ChatPage      = lazy(() => import('@features/chat/ChatPage').then((m) => ({ default: m.ChatPage })));
 
 // ─── Route fallback ───────────────────────────────────────────────────────
 
@@ -96,6 +97,15 @@ function InnerRouter() {
               element={
                 <RouteSuspense>
                   <GraphPage />
+                </RouteSuspense>
+              }
+            />
+            {/* AI Chat Workspace */}
+            <Route
+              path="/chat"
+              element={
+                <RouteSuspense>
+                  <ChatPage />
                 </RouteSuspense>
               }
             />

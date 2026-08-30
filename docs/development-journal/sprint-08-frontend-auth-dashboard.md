@@ -223,3 +223,149 @@
 
 **Status:** ✅ Complete
 
+
+---
+
+## Entry 05 — Sprint 8.4 AI Chat Workspace
+
+**Task:** Implement the complete AI Chat Workspace — Granite-powered question answering with full explainability, client-side message history, and all 5 mandatory AI UI Contract fields.
+
+**Branch:** `feat/frontend-ai-workspace`
+
+**Problem:** No chat interface existed. The backend `POST /api/v1/chat/ask` endpoint returns a rich response including a `RetrievalExplanationRead` payload (confidence, citations, graph path, retrieval mode) that must always be shown per the AI UI Contract.
+
+**Solution:**
+
+### Types (`types/chat.ts`)
+- `ChatAskRequest`, `ChatAskResponse` — mirror backend `ChatAskRequest`/`ChatAskResponse` Pydantic schemas exactly.
+- `CitationRead`, `GraphPathStepRead`, `RetrievalExplanationRead` — mirror `backend/app/schemas/retrieval.py` exactly.
+- `ChatMessage` — client-assembled message type (role, content, explanation, suggested_actions, isLoading, error) — never a raw API response stored as-is.
+- `ChatSession` — per-session options (scenario_id, use_hybrid).
+
+### Services (`services/chatService.ts`)
+- `askChat(request, signal)` — POST `/api/v1/chat/ask` with AbortController signal support.
+
+### Store (`stores/chatStore.ts`)
+- `useChatStore` — owns message history assembled client-side (the one legitimate Zustand use for chat per FRONTEND_RULES).
+- Actions: `addMessage`, `updateMessage`, `removeMessage`, `clearMessages`, `setScenario`, `setUseHybrid`.
+
+### Explainability Components (`features/explainability/`)
+- `CitationPanel` — ranked citation list with score, type, reason, matched entities. Always visible.
+- `ConfidenceBadge` — inline score badge with color tiers (high/medium/low) + text label (WCAG 1.4.1 compliance).
+- `RetrievalModeTag` — semantic/hybrid/engineering tag with mode-specific styling.
+- `GraphPathPanel` — stepwise entity traversal chain. Visible when `graph_path` non-empty.
+- `ParticipatingAgentsList` — agent attribution pills. Visible when non-empty.
+
+### Utilities (`utils/markdownRenderer.tsx`)
+- `MarkdownRenderer` — `react-markdown` + `rehype-sanitize` + `remark-gfm` with a strict allow-list schema. No `dangerouslySetInnerHTML` anywhere.
+
+### Chat Feature (`features/chat/`)
+- `MessageBubble` — user bubble (plain text) + assistant bubble (Markdown answer + all 5 explainability fields + suggested_actions as `<button>` elements only).
+- `ChatInput` — React Hook Form textarea, Enter to submit, Shift+Enter for newline, auto-resize, hybrid toggle, scenario selector, character count.
+- `ChatPage` — full-screen chat layout with `role="log"` + `aria-live="polite"` message list, React Query `useMutation` for request lifecycle, loading placeholder, error state in bubble, clear conversation.
+
+### Test Infrastructure
+- `tests/setup.ts` — Added `window.HTMLElement.prototype.scrollIntoView = function () {}` polyfill for jsdom (canonical pattern).
+- `tests/mocks/handlers.ts` — Added `mockExplanation`, `mockChatResponse` fixtures + `POST /api/v1/chat/ask` handler.
+
+### Router
+- `app/router.tsx` — Added `/chat` lazy route inside `AuthGuard`.
+
+### Tests (`ChatPage.test.tsx` — 20 tests)
+Empty state, send → user bubble, clear input, empty no-submit, loading placeholder, disabled send, assistant answer, explainability panel, ConfidenceBadge score, RetrievalModeTag, CitationPanel count, GraphPathPanel steps, suggested actions as buttons, suggested action click → new message, API error → error bubble, clear conversation, hybrid toggle.
+
+**Validation:**
+- `tsc --noEmit` → 0 errors
+- `vitest run` → **122/122 tests pass** (20 new in Sprint 8.4)
+- `vite build` → Clean build — ChatPage 177 kB (54 kB gzip, includes react-markdown bundle)
+
+**Security:**
+- No `dangerouslySetInnerHTML` anywhere. AI responses rendered via `MarkdownRenderer` with `rehype-sanitize` strict schema.
+- `suggested_actions` always `<button>` — never `<a href>`.
+- JWT injected by Axios interceptor — never in chat request body.
+- `organization_id` from auth store — never from URL or form input.
+
+**Accessibility:**
+- Message list: `role="log"` + `aria-live="polite"`.
+- `ConfidenceBadge`: status not communicated by color alone — includes `<span className="sr-only">High/Medium/Low confidence</span>`.
+- Chat input: `<label htmlFor>`, `aria-describedby`, `aria-invalid`, `role="search"` on textarea wrapper.
+- Loading state: `aria-busy="true"` on loading container.
+- Error: `role="alert"` + `aria-live="assertive"`.
+
+**Status:** ✅ Complete
+
+
+---
+
+## Entry 06 — Sprint 8.4 Polish: AI Response UI System
+
+**Task:** Refactor AI Chat into a reusable AI Response UI System before Sprint 8.5 commit. Create `AIResponseCard`, `ExplainabilityAccordion`, `StreamingMessage`, `AIWorkspaceHeader`. Upgrade `MarkdownRenderer` with copy-to-clipboard. Add UX improvements: welcome screen, starter prompts, stop-generation button, clear-confirmation dialog, scroll-to-bottom.
+
+**Branch:** `feat/frontend-ai-workspace`
+
+**Problem:** `MessageBubble` contained all explainability rendering inline — not reusable for Engineering Copilot or Multi-Agent Workspace. The original `ChatPage` had a plain clear button with no confirmation, no welcome prompts on empty state, and no streaming-ready architecture.
+
+**Solution:**
+
+### AIResponseCard (`features/chat/AIResponseCard.tsx`)
+Single renderer for every Granite-powered assistant response. Layout:
+1. **Header** — Granite badge (ibm/granite detection) · `RetrievalModeTag` · `ConfidenceBadge` · timestamp
+2. **Answer** — `MarkdownRenderer`
+3. **Explainability** — `ExplainabilityAccordion` (collapsed by default, badges always visible in trigger)
+4. **Suggested Actions** — `<button>` only, never `<a href>`
+5. **ParticipatingAgentsList** — when non-empty
+
+`MessageBubble` now delegates all assistant rendering to `AIResponseCard` — it is a role-switcher only.
+
+### ExplainabilityAccordion (`features/explainability/ExplainabilityAccordion.tsx`)
+Radix Accordion-based collapsible "Why this answer?" section. Collapsed by default. Shows `ConfidenceBadge` + `RetrievalModeTag` in trigger (always visible). Expanded content: plain-English summary, stats row (memory count, citations, graph steps), `CitationPanel`, `GraphPathPanel`. Keyboard accessible: Enter/Space to expand, ESC to close.
+
+### StreamingMessage (`features/chat/StreamingMessage.tsx`)
+Streaming-ready placeholder component. Empty state: pulsing dots + spinner. Partial content state: partial `MarkdownRenderer` + typing cursor. Respects `prefers-reduced-motion` (Framer Motion `useReducedMotion()`). Screen reader `role="status"` + `aria-live="polite"`.
+
+### AIWorkspaceHeader (`features/chat/AIWorkspaceHeader.tsx`)
+Reusable workspace header for AI surfaces. Contains: title, description, icon, IBM Granite attribution badge, organization badge, retrieval mode radio group (semantic/hybrid), clear conversation button. `ChatPage` now uses this instead of an inline header. Designed for reuse in Engineering Copilot and Multi-Agent Workspace (Sprint 8.5).
+
+### MarkdownRenderer upgrade (`utils/markdownRenderer.tsx`)
+- Code blocks wrapped in `<div className="relative group">` with language label + copy-to-clipboard `CopyButton`.
+- `CopyButton` uses `navigator.clipboard.writeText()` — no `dangerouslySetInnerHTML`. Clipboard access denied → fail silently.
+- `aria-label="Copy code to clipboard"` + `data-testid="copy-code-btn"`.
+- Inline code rendered with `<code>` styled separately from block code.
+
+### chatStore streaming fields (`stores/chatStore.ts`)
+Added: `isStreaming`, `streamingMessageId`, `abortController`. Actions: `startStreaming`, `appendStreamToken`, `stopStreaming`, `abortStreaming`. The `abortController` is stored for Stop Generating to abort from any component.
+
+### ChatPage UX improvements (`features/chat/ChatPage.tsx`)
+- **Welcome screen** with 4 starter prompt chips instead of generic `EmptyState`.
+- **Stop generating button** — visible while `chatMutation.isPending`, calls `abortStreaming()`.
+- **Scroll-to-bottom** — floating button when user scrolls up more than 120px from bottom.
+- **Clear confirmation dialog** — Radix Dialog with Cancel / Confirm Destructive.
+- **AbortController** passed to `askChat` on every submission. Error on abort shows "Generation stopped."
+- `AIWorkspaceHeader` replaces inline header — retrieval mode selector is now a radio group.
+
+**Tests (43 in ChatPage.test.tsx + unit suites):**
+- ChatPage: 25 tests (welcome screen, starter prompts, stop button, clear dialog, accordion expand, AIResponseCard, hybrid radio toggle)
+- AIResponseCard unit: 8 tests (Granite badge, suggested_actions as buttons, accordion presence)
+- ExplainabilityAccordion unit: 5 tests (closed default, expand, collapse, ConfidenceBadge in trigger, defaultOpen)
+- MarkdownRenderer unit: 3 tests (copy button, aria-label, inline code)
+
+**Validation:**
+- `tsc --noEmit` → 0 errors
+- `vitest run` → **145/145 tests pass** (23 new in Entry 06)
+- `vite build` → Clean production build — ChatPage 203 kB (62 kB gzip)
+
+**Security:**
+- `CopyButton` copies text only via `navigator.clipboard.writeText()` — no HTML execution.
+- `AbortController` aborts Axios request cleanly — no dangling network callbacks.
+- All AI content continues through `MarkdownRenderer` + `rehype-sanitize`.
+- `suggested_actions` remain `<button>` throughout refactor — no regression.
+
+**Accessibility:**
+- `ExplainabilityAccordion`: `aria-expanded`, keyboard trigger, Radix manages focus.
+- `AIWorkspaceHeader` retrieval selector: `role="radio"` + `aria-checked` + `<fieldset>` + `<legend class="sr-only">`.
+- `CopyButton`: `aria-label` updates to "Copied!" on success — state communicated to screen readers.
+- `StreamingMessage`: `role="status"` + `aria-live="polite"` announcer for streaming completion.
+- Clear dialog: focus trap + ESC close via Radix Dialog.
+
+**Status:** ✅ Complete
+

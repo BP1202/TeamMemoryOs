@@ -13,6 +13,7 @@ import type { User, LoginResponse } from '@typedefs/auth';
 import type { HealthResponse, DbHealthResponse } from '@typedefs/api';
 import type { MemoryEntry, Scenario } from '@typedefs/memory';
 import type { Entity, Relationship, Neighbor } from '@typedefs/graph';
+import type { ChatAskResponse, RetrievalExplanationRead } from '@typedefs/chat';
 
 const BASE = 'http://localhost:8000';
 
@@ -163,6 +164,49 @@ export const mockNeighbors: Neighbor[] = [
   },
 ];
 
+// ─── Chat fixtures ─────────────────────────────────────────────────────────
+
+export const mockExplanation: RetrievalExplanationRead = {
+  question:       'How do we handle authentication?',
+  retrieval_mode: 'semantic',
+  confidence:     0.87,
+  result_count:   2,
+  citations: [
+    {
+      memory_id:         'mem-01',
+      memory_title:      'Adopt pgvector for semantic search',
+      memory_type:       'decision',
+      retrieval_reason:  'Directly relevant to the question asked.',
+      semantic_score:    0.91,
+      graph_score:       0.0,
+      link_score:        0.0,
+      final_score:       0.91,
+      graph_distance:    0,
+      matched_entities:  ['AuthService'],
+      rank:              1,
+    },
+  ],
+  graph_path: [
+    {
+      source_entity_id:   'ent-01',
+      source_entity_name: 'AuthService',
+      relationship_type:  'DEPENDS_ON',
+      target_entity_id:   'ent-02',
+      target_entity_name: 'PostgreSQL',
+    },
+  ],
+  summary: 'Authentication is handled by the AuthService using JWT tokens and PostgreSQL for storage.',
+};
+
+export const mockChatResponse: ChatAskResponse = {
+  answer:                 'Authentication is handled via JWT tokens issued by the AuthService.',
+  citations:              ['mem-01'],
+  retrieved_memory_count: 2,
+  provider_used:          'ibm-granite',
+  retrieval_mode:         'semantic',
+  explanation:            mockExplanation,
+};
+
 // ─── Handlers ─────────────────────────────────────────────────────────────
 
 export const handlers = [
@@ -307,5 +351,12 @@ export const handlers = [
     const rel = mockRelationships.find((r) => r.id === params.id);
     if (!rel) return HttpResponse.json({ detail: 'Not found' }, { status: 404 });
     return HttpResponse.json(rel, { status: 200 });
+  }),
+
+  // ── Chat handler ──────────────────────────────────────────────────────
+
+  // POST /api/v1/chat/ask
+  http.post(`${BASE}/api/v1/chat/ask`, () => {
+    return HttpResponse.json(mockChatResponse, { status: 200 });
   }),
 ];

@@ -22,3 +22,13 @@ export {
   RELATIONSHIP_TYPES,
   RELATIONSHIP_TYPE_LABELS,
 } from './graph';
+export type {
+  ChatAskRequest,
+  ChatAskResponse,
+  ChatMessage,
+  ChatMessageRole,
+  ChatSession,
+  CitationRead,
+  GraphPathStepRead,
+  RetrievalExplanationRead,
+} from './chat';

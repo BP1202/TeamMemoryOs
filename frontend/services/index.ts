@@ -19,3 +19,4 @@ export {
   listOutgoingRelationships,
   listNeighbors,
 } from './relationshipService';
+export { askChat } from './chatService';
