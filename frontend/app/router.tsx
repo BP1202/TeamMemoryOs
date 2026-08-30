@@ -11,7 +11,6 @@ import {
   BrowserRouter,
   Routes,
   Route,
-  Navigate,
   useNavigate,
 } from 'react-router-dom';
 
@@ -32,6 +31,9 @@ const DashboardPage = lazy(() => import('@features/dashboard/DashboardPage').the
 const MemoryPage    = lazy(() => import('@features/memory/MemoryPage').then((m) => ({ default: m.MemoryPage })));
 const GraphPage     = lazy(() => import('@features/graph/GraphPage').then((m) => ({ default: m.GraphPage })));
 const ChatPage      = lazy(() => import('@features/chat/ChatPage').then((m) => ({ default: m.ChatPage })));
+const AgentsPage    = lazy(() => import('@features/agents/AgentsPage').then((m) => ({ default: m.AgentsPage })));
+const SettingsPage  = lazy(() => import('@features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
+const NotFoundPage  = lazy(() => import('@features/NotFoundPage').then((m) => ({ default: m.NotFoundPage })));
 
 // ─── Route fallback ───────────────────────────────────────────────────────
 
@@ -109,6 +111,50 @@ function InnerRouter() {
                 </RouteSuspense>
               }
             />
+
+            {/* Multi-Agent Workspace */}
+            <Route
+              path="/agents"
+              element={
+                <RouteSuspense>
+                  <AgentsPage />
+                </RouteSuspense>
+              }
+            />
+            <Route
+              path="/agents/workflow"
+              element={
+                <RouteSuspense>
+                  <AgentsPage />
+                </RouteSuspense>
+              }
+            />
+            <Route
+              path="/agents/repository"
+              element={
+                <RouteSuspense>
+                  <AgentsPage />
+                </RouteSuspense>
+              }
+            />
+            <Route
+              path="/agents/debug"
+              element={
+                <RouteSuspense>
+                  <AgentsPage />
+                </RouteSuspense>
+              }
+            />
+
+            {/* Settings */}
+            <Route
+              path="/settings"
+              element={
+                <RouteSuspense>
+                  <SettingsPage />
+                </RouteSuspense>
+              }
+            />
           </Route>
 
           {/* Auth (unauthenticated) */}
@@ -123,8 +169,15 @@ function InnerRouter() {
             />
           </Route>
 
-          {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          {/* 404 — global NotFound */}
+          <Route
+            path="*"
+            element={
+              <RouteSuspense>
+                <NotFoundPage />
+              </RouteSuspense>
+            }
+          />
         </Route>
       </Routes>
     </ApiInterceptorBootstrap>
@@ -135,9 +188,7 @@ function InnerRouter() {
 
 export function AppRouter() {
   return (
-    <BrowserRouter
-      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
-    >
+    <BrowserRouter>
       <InnerRouter />
     </BrowserRouter>
   );

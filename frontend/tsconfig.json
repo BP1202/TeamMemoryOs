@@ -30,7 +30,8 @@
       "@stores/*": ["./stores/*"],
       "@styles/*": ["./styles/*"],
       "@typedefs/*": ["./types/*"],
-      "@utils/*": ["./utils/*"]
+      "@utils/*": ["./utils/*"],
+      "@tests/*": ["./tests/*"]
     }
   },
   "include": [

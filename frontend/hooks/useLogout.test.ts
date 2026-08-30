@@ -29,7 +29,7 @@ function makeWrapper() {
       { client: qc },
       React.createElement(
         MemoryRouter,
-        { future: { v7_startTransition: true, v7_relativeSplatPath: true } },
+        null,
         children,
       ),
     );

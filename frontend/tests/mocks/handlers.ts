@@ -14,6 +14,16 @@ import type { HealthResponse, DbHealthResponse } from '@typedefs/api';
 import type { MemoryEntry, Scenario } from '@typedefs/memory';
 import type { Entity, Relationship, Neighbor } from '@typedefs/graph';
 import type { ChatAskResponse, RetrievalExplanationRead } from '@typedefs/chat';
+import type {
+  AgentListResponse,
+  AgentRead,
+  WorkflowPlanPreviewResponse,
+  WorkflowRunResponse,
+  RepositorySearchResponse,
+  BranchListResponse,
+  FileHistoryResponse,
+  DebugAnalyzeResponse,
+} from '@typedefs/agents';
 
 const BASE = 'http://localhost:8000';
 
@@ -107,9 +117,128 @@ export const mockScenarios: Scenario[] = [
 export const mockMemoryList = mockMemoryEntries.map(({ id }) => ({ id }));
 export const mockScenarioList = mockScenarios.map(({ id }) => ({ id }));
 
-export const mockAgentList = {
-  agents: [{ name: 'repository_agent' }, { name: 'debug_agent' }],
+export const mockAgentDetails: AgentRead[] = [
+  {
+    name: 'repository_agent',
+    description: 'Searches and analyzes repository history, commits, and file changes.',
+    capabilities: [
+      { name: 'search_commits', description: 'Find commits by message or author.' },
+      { name: 'file_history', description: 'List commit history for a specific file.' },
+    ],
+    is_active: true,
+  },
+  {
+    name: 'debug_agent',
+    description: 'Analyzes error messages and stack traces against past incidents.',
+    capabilities: [
+      { name: 'analyze_error', description: 'Match errors to historical incidents.' },
+      { name: 'suggest_fix', description: 'Suggest remediation based on past resolutions.' },
+    ],
+    is_active: true,
+  },
+];
+
+export const mockAgentList: AgentListResponse = {
+  agents: mockAgentDetails,
   total: 2,
+};
+
+export const mockWorkflowPlan: WorkflowPlanPreviewResponse = {
+  question: 'What changed in authentication last week?',
+  selected_agents: ['repository_agent'],
+  steps: [
+    { step: 1, agent: 'planner',    description: 'Plan execution chain', estimated_duration_ms: 100 },
+    { step: 2, agent: 'repository_agent', description: 'Search repository commits', estimated_duration_ms: 800 },
+    { step: 3, agent: 'retriever',  description: 'Retrieve memory context', estimated_duration_ms: 400 },
+    { step: 4, agent: 'granite',    description: 'Generate answer', estimated_duration_ms: 1200 },
+    { step: 5, agent: 'explanation_builder', description: 'Build explanation', estimated_duration_ms: 200 },
+    { step: 6, agent: 'debug_agent', description: 'Analyze for incidents', estimated_duration_ms: 600 },
+  ],
+  estimated_total_ms: 3300,
+};
+
+export const mockWorkflowRun: WorkflowRunResponse = {
+  answer: 'Authentication was updated last week with a new JWT refresh token rotation mechanism.',
+  provider_used: 'ibm-granite',
+  participating_agents: ['repository_agent', 'granite'],
+  steps: [
+    { step: 1, agent: 'planner',    status: 'complete', duration_ms: 95,   memory_count: 0, citations_count: 0, description: 'Plan execution chain' },
+    { step: 2, agent: 'repository_agent', status: 'complete', duration_ms: 820,  memory_count: 3, citations_count: 2, description: 'Searched repository' },
+    { step: 3, agent: 'debug_agent', status: 'complete', duration_ms: 210,  memory_count: 1, citations_count: 0, description: 'Analyzed for incidents' },
+    { step: 4, agent: 'retriever',  status: 'complete', duration_ms: 390,  memory_count: 5, citations_count: 3, description: 'Retrieve memory context' },
+    { step: 5, agent: 'granite',    status: 'complete', duration_ms: 1150, memory_count: 0, citations_count: 0, description: 'Generate answer' },
+    { step: 6, agent: 'explanation_builder', status: 'complete', duration_ms: 180, memory_count: 0, citations_count: 3, description: 'Build explanation' },
+  ],
+  total_duration_ms: 2845,
+  explanation: {
+    question: 'What changed in authentication last week?',
+    retrieval_mode: 'hybrid',
+    confidence: 0.85,
+    result_count: 5,
+    citations: [
+      {
+        memory_id: 'mem-01',
+        memory_title: 'JWT refresh token rotation implemented',
+        memory_type: 'decision',
+        retrieval_reason: 'Direct match on authentication changes.',
+        semantic_score: 0.92,
+        graph_score: 0.1,
+        link_score: 0.0,
+        final_score: 0.87,
+        graph_distance: 1,
+        matched_entities: ['AuthService'],
+        rank: 1,
+      },
+    ],
+    graph_path: [
+      {
+        source_entity_id: 'ent-01',
+        source_entity_name: 'AuthService',
+        relationship_type: 'DEPENDS_ON',
+        target_entity_id: 'ent-02',
+        target_entity_name: 'PostgreSQL',
+      },
+    ],
+    summary: 'Authentication changes retrieved from repository history and matched against memory.',
+  },
+  suggested_actions: [
+    'Show all auth-related commits from last month',
+    'What incidents involved authentication?',
+  ],
+};
+
+export const mockRepositorySearch: RepositorySearchResponse = {
+  answer: 'Recent auth module changes include JWT rotation and session expiry updates.',
+  branch: 'main',
+  commits: [
+    { sha: 'a1b2c3d4e5f6', message: 'feat: add JWT refresh token rotation', author: 'alice', date: '2024-03-14T10:00:00Z', files_changed: 3 },
+    { sha: 'b2c3d4e5f6a1', message: 'fix: session expiry edge case', author: 'bob', date: '2024-03-13T09:00:00Z', files_changed: 1 },
+  ],
+  provider_used: 'ibm-granite',
+  explanation: null,
+  suggested_actions: ['Show file history for auth.py'],
+};
+
+export const mockBranches: BranchListResponse = {
+  branches: ['main', 'dev', 'feat/auth-refresh', 'feat/frontend-ai-workspace'],
+};
+
+export const mockFileHistory: FileHistoryResponse = {
+  file_path: 'backend/app/api/routes/auth.py',
+  branch: 'main',
+  commits: [
+    { sha: 'a1b2c3d4e5f6', message: 'feat: add JWT refresh token rotation', author: 'alice', date: '2024-03-14T10:00:00Z', files_changed: 3 },
+  ],
+};
+
+export const mockDebugAnalysis: DebugAnalyzeResponse = {
+  analysis: 'This error matches a known pool exhaustion incident from 2024-03-10. Root cause was pool_size=5.',
+  incidents_found: [
+    { memory_id: 'mem-02', title: 'Database connection pool exhaustion', similarity: 0.94, resolution: 'Increase pool_size to 20 in SQLAlchemy config.' },
+  ],
+  suggested_actions: ['Check pool_size configuration', 'Review recent connection usage'],
+  provider_used: 'ibm-granite',
+  explanation: null,
 };
 
 // ─── Entity + Relationship fixtures ────────────────────────────────────────
@@ -313,6 +442,43 @@ export const handlers = [
   // GET /api/v1/agents/
   http.get(`${BASE}/api/v1/agents/`, () => {
     return HttpResponse.json(mockAgentList, { status: 200 });
+  }),
+
+  // GET /api/v1/agents/:name
+  http.get(`${BASE}/api/v1/agents/:name`, ({ params }) => {
+    const agent = mockAgentDetails.find((a) => a.name === params.name);
+    if (!agent) return HttpResponse.json({ detail: 'Agent not found' }, { status: 404 });
+    return HttpResponse.json(agent, { status: 200 });
+  }),
+
+  // POST /api/v1/agents/workflow/plan
+  http.post(`${BASE}/api/v1/agents/workflow/plan`, () => {
+    return HttpResponse.json(mockWorkflowPlan, { status: 200 });
+  }),
+
+  // POST /api/v1/agents/workflow/run
+  http.post(`${BASE}/api/v1/agents/workflow/run`, () => {
+    return HttpResponse.json(mockWorkflowRun, { status: 200 });
+  }),
+
+  // POST /api/v1/agents/repository/search
+  http.post(`${BASE}/api/v1/agents/repository/search`, () => {
+    return HttpResponse.json(mockRepositorySearch, { status: 200 });
+  }),
+
+  // GET /api/v1/agents/repository/branches
+  http.get(`${BASE}/api/v1/agents/repository/branches`, () => {
+    return HttpResponse.json(mockBranches, { status: 200 });
+  }),
+
+  // POST /api/v1/agents/repository/file-history
+  http.post(`${BASE}/api/v1/agents/repository/file-history`, () => {
+    return HttpResponse.json(mockFileHistory, { status: 200 });
+  }),
+
+  // POST /api/v1/agents/debug/analyze
+  http.post(`${BASE}/api/v1/agents/debug/analyze`, () => {
+    return HttpResponse.json(mockDebugAnalysis, { status: 200 });
   }),
 
   // ── Entity handlers ────────────────────────────────────────────────────

@@ -20,3 +20,13 @@ export {
   listNeighbors,
 } from './relationshipService';
 export { askChat } from './chatService';
+export {
+  listAgents,
+  getAgent,
+  planWorkflow,
+  runWorkflow,
+  searchRepository,
+  listBranches,
+  getFileHistory,
+  analyzeDebug,
+} from './agentsService';

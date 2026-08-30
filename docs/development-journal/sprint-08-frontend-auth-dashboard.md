@@ -369,3 +369,62 @@ Added: `isStreaming`, `streamingMessageId`, `abortController`. Actions: `startSt
 
 **Status:** ✅ Complete
 
+
+---
+
+## Entry 08 — Sprint 8.5 + 8.6 — Multi-Agent Workspace & Final Integration
+
+**Task:** Implement Milestone 8.5 (Multi-Agent Workspace) and Milestone 8.6 (Final Integration & QA).
+
+**Branch:** `feat/frontend-ai-workspace`
+**Date:** 2025-01-09
+
+**Problem:** Sprints 8.5 and 8.6 were pending. No agent workspace UI existed. Router had no `/agents`, `/settings`, or 404 routes. Pre-existing `future` prop type errors from React Router v7 migration blocked `tsc --noEmit`.
+
+**Solution:**
+
+### Milestone 8.5 — Multi-Agent Workspace
+
+**New types (`types/agents.ts`):** Typed all 8 agent API shapes — `AgentRead`, `WorkflowStep`, `WorkflowPlanPreviewResponse`, `WorkflowRunResponse`, `RepositorySearchResponse`, `FileHistoryResponse`, `DebugAnalyzeResponse`, `WorkflowHistoryTurn`, `AgentPanelTab`.
+
+**Service layer (`services/agentsService.ts`):** 8 typed functions — `listAgents`, `getAgent`, `planWorkflow`, `runWorkflow`, `searchRepository`, `listBranches`, `getFileHistory`, `analyzeDebug`. All use `apiClient` with AbortSignal.
+
+**Store (`stores/agentStore.ts`):** Zustand store with `activePanel`, `selectedAgentName`, `workflowHistory` (capped at 20 turns via `slice`). Pure UI state — no server data.
+
+**Features (`features/agents/`):**
+- `AgentCard` — accessible card with aria-pressed, keyboard navigation, capability tags.
+- `AgentRegistryGrid` — loading/empty/error/data states via React Query.
+- `WorkflowPlanPreview` — dry-run preview labelled "Preview — not yet executed" in visible text + aria-label.
+- `WorkflowStepCard` + `WorkflowTimeline` — 6-step vertical timeline, `role="list"` + `role="listitem"`, status not color-only (text label always present).
+- `WorkflowPanel` — React Hook Form for workflow question, agent multi-select, dry-run + execute mutations with full AIResponseCard explainability.
+- `BranchSelector` — controlled select with React Query branch list.
+- `CommitSummaryList` — commit history with short SHA.
+- `RepositoryAgentPanel` — search + file history forms, AIResponseCard with full explainability.
+- `DebugAgentPanel` — error message + plain text stack trace textarea (never rendered as HTML), incident match list, AIResponseCard.
+- `ParsedTraceView` — expandable pre-formatted trace, "Show all N lines" toggle.
+- `ConversationTurn` + `ConversationHistoryList` — session history with `role="log"` + `aria-live="polite"`, ParticipatingAgentsList per turn.
+- `ExecutionMetricsBadge` — response time display.
+- `AgentsPage` — Tabs for Registry / Workflow / Repository / Debug. Zustand activePanel synced with URL path via `useEffect`. Conversation history in right sidebar (hidden below `lg`).
+
+### Milestone 8.6 — Final Integration & QA
+
+- `features/settings/SettingsPage.tsx` — Theme selection, account info, system info.
+- `features/NotFoundPage.tsx` — 404 page with accessible Back to Dashboard link.
+- **Router** — Added lazy `/agents/*`, `/settings`, and global 404 route (replaces `Navigate to /`). Removed deprecated `future` prop from `BrowserRouter` (React Router v7).
+- **MSW handlers** — 8 new agent endpoint mocks with full typed fixtures including workflow steps, commits, incidents, and complete explainability fields.
+- **Path alias** — Added `@tests/*` to `tsconfig.json` and `vitest.config.ts` for test imports.
+- **Pre-existing `future` prop fixes** — Removed deprecated `future` prop from `AuthGuard.test.tsx`, `useLogout.test.ts`, `renderWithProviders.tsx`, and `router.tsx`.
+
+**Validation:**
+
+- `tsc --noEmit` — **0 errors** (was 4 pre-existing errors from React Router v7 `future` prop, now fixed).
+- `npm run test` — **171/171 tests pass** across 20 test files.
+- `npm run build` — **Build succeeds**, initial chunk 490 kB (gzip: 161 kB).
+
+**Security:**
+- Stack traces rendered as plain text in `<pre>` — never as HTML.
+- `suggested_actions` always `<button>` elements — never `<a href>`.
+- No `dangerouslySetInnerHTML` anywhere.
+- All AI responses show all 5 explainability fields.
+
+**Status:** Complete ✅

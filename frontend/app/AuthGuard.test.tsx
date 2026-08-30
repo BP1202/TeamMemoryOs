@@ -31,7 +31,6 @@ function setup(isAuthenticated: boolean) {
     <QueryClientProvider client={qc}>
       <MemoryRouter
         initialEntries={['/dashboard']}
-        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
       >
         <Routes>
           <Route
