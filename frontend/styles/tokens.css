@@ -21,112 +21,98 @@
  */
 
 :root {
-  --color-surface-base:     #0a0a0f;
-  --color-surface-default:  #111118;
-  --color-surface-elevated: #1a1a24;
-  --color-surface-subtle:   #22222f;
-  --color-surface-overlay:  rgba(10, 10, 15, 0.8);
+  --color-surface-base:     #0F0C1B;
+  --color-surface-default:  #161327;
+  --color-surface-elevated: #211C3B;
+  --color-surface-subtle:   #2D264F;
+  --color-surface-overlay:  rgba(15, 12, 27, 0.85);
 }
 
-/* ─── Brand — Indigo ───────────────────────────────────────────────────────── */
+/* ─── Brand — Electric Purple / Violet ─────────────────────────────────────── */
 
 :root {
-  --color-brand-default: #6366f1;
-  --color-brand-hover:   #818cf8;
-  --color-brand-muted:   #312e81;
-  --color-brand-subtle:  #1e1b4b;
-  --color-brand-ring:    rgba(99, 102, 241, 0.5);
+  --color-brand-default: #A855F7;
+  --color-brand-hover:   #C084FC;
+  --color-brand-muted:   #6B21A8;
+  --color-brand-subtle:  #2E1065;
+  --color-brand-ring:    rgba(168, 85, 247, 0.5);
 }
 
 /* ─── Semantic Status Colors ───────────────────────────────────────────────── */
 
 :root {
   /* Success */
-  --color-success-default: #22c55e;
-  --color-success-muted:   #14532d;
-  --color-success-subtle:  #052e16;
+  --color-success-default: #22C55E;
+  --color-success-muted:   #14532D;
+  --color-success-subtle:  #052E16;
 
   /* Warning */
-  --color-warning-default: #f59e0b;
-  --color-warning-muted:   #78350f;
-  --color-warning-subtle:  #451a03;
+  --color-warning-default: #F59E0B;
+  --color-warning-muted:   #78350F;
+  --color-warning-subtle:  #451A03;
 
   /* Danger */
-  --color-danger-default:  #ef4444;
-  --color-danger-muted:    #7f1d1d;
-  --color-danger-subtle:   #450a0a;
+  --color-danger-default:  #F43F5E;
+  --color-danger-muted:    #881337;
+  --color-danger-subtle:   #4C0519;
 
   /* Info */
-  --color-info-default:    #38bdf8;
-  --color-info-muted:      #0c4a6e;
-  --color-info-subtle:     #082f49;
+  --color-info-default:    #2DD4BF;
+  --color-info-muted:      #134E4A;
+  --color-info-subtle:     #042F2E;
 }
 
 /* ─── Text ─────────────────────────────────────────────────────────────────── */
 
 :root {
-  --color-text-primary:   #f1f5f9;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted:     #475569;
-  --color-text-inverse:   #0a0a0f;
-  --color-text-link:      #818cf8;
-  --color-text-code:      #c084fc;
+  --color-text-primary:   #FFFFFF;
+  --color-text-secondary: #C4BFDE;
+  --color-text-muted:     #7B74A3;
+  --color-text-inverse:   #0F0C1B;
+  --color-text-link:      #C084FC;
+  --color-text-code:      #E9D5FF;
 }
 
 /* ─── Borders ──────────────────────────────────────────────────────────────── */
 
 :root {
-  --color-border-default: #1e1e2e;
-  --color-border-subtle:  #16161f;
-  --color-border-focus:   #6366f1;
-  --color-border-danger:  #ef4444;
+  --color-border-default: #2D264E;
+  --color-border-subtle:  #1E1938;
+  --color-border-focus:   #A855F7;
+  --color-border-danger:  #F43F5E;
 }
 
 /* ─── Confidence Banding (AI Explainability) ───────────────────────────────── */
-/*
- * Maps a 0.0–1.0 confidence score to a visual color tier:
- *   score > 0.75   → high  (green)
- *   score 0.5–0.75 → medium (amber)
- *   score < 0.5    → low   (red)
- *
- * These tokens are consumed exclusively by features/explainability/ components.
- */
 
 :root {
-  --color-confidence-high:         #22c55e;
-  --color-confidence-high-muted:   #14532d;
-  --color-confidence-medium:       #f59e0b;
-  --color-confidence-medium-muted: #78350f;
-  --color-confidence-low:          #ef4444;
-  --color-confidence-low-muted:    #7f1d1d;
+  --color-confidence-high:         #22C55E;
+  --color-confidence-high-muted:   #14532D;
+  --color-confidence-medium:       #F59E0B;
+  --color-confidence-medium-muted: #78350F;
+  --color-confidence-low:          #F43F5E;
+  --color-confidence-low-muted:    #881337;
 }
 
 /* ─── Entity Type Colors (Knowledge Graph) ─────────────────────────────────── */
-/*
- * Used by GraphCanvas node coloring and colorFromType utility.
- */
 
 :root {
-  --color-entity-person:       #818cf8;
-  --color-entity-technology:   #38bdf8;
-  --color-entity-project:      #34d399;
-  --color-entity-decision:     #f59e0b;
-  --color-entity-concept:      #c084fc;
-  --color-entity-organization: #f97316;
-  --color-entity-default:      #94a3b8;
+  --color-entity-person:       #A855F7;
+  --color-entity-technology:   #2DD4BF;
+  --color-entity-project:      #22C55E;
+  --color-entity-decision:     #F59E0B;
+  --color-entity-concept:      #E879F9;
+  --color-entity-organization: #FB923C;
+  --color-entity-default:      #C4BFDE;
 }
 
 /* ─── Memory Type Colors ───────────────────────────────────────────────────── */
-/*
- * Used by MemoryTypeBadge and MemoryTable.
- */
 
 :root {
-  --color-memory-decision:      #f59e0b;
-  --color-memory-code:          #38bdf8;
-  --color-memory-discussion:    #818cf8;
-  --color-memory-documentation: #34d399;
-  --color-memory-incident:      #ef4444;
+  --color-memory-decision:      #F59E0B;
+  --color-memory-code:          #2DD4BF;
+  --color-memory-discussion:    #A855F7;
+  --color-memory-documentation: #22C55E;
+  --color-memory-incident:      #F43F5E;
 }
 
 /* ─── Typography ───────────────────────────────────────────────────────────── */

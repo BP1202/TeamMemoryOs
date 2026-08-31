@@ -15,115 +15,108 @@
 
 export const colors = {
   /**
-   * Background surface layers.
-   * Use in order from outermost canvas to innermost elevated surface.
+   * Background surface layers from reference image:
+   * Deep obsidian-violet canvas to elevated slate-purple cards.
    */
   surface: {
-    base:     '#0a0a0f', // Root page canvas
-    default:  '#111118', // Cards, panels, sidebars
-    elevated: '#1a1a24', // Dropdowns, dialogs, popovers
-    subtle:   '#22222f', // Hover highlights, row backgrounds
-    overlay:  'rgba(10, 10, 15, 0.8)', // Backdrop overlays
+    base:     '#0F0C1B', // Root page canvas (deep midnight purple)
+    default:  '#161327', // Cards, panels, sidebars
+    elevated: '#211C3B', // Dropdowns, dialogs, active cards
+    subtle:   '#2D264F', // Hover highlights, row backgrounds
+    overlay:  'rgba(15, 12, 27, 0.85)', // Backdrop overlays
   },
 
   /**
-   * Brand — Indigo.
-   * Primary interactive color for buttons, links, and active states.
+   * Brand — Vibrant Electric Violet / Purple from reference dashboard.
    */
   brand: {
-    default: '#6366f1',
-    hover:   '#818cf8',
-    muted:   '#312e81',
-    subtle:  '#1e1b4b',
-    ring:    'rgba(99, 102, 241, 0.5)', // Focus ring (with alpha)
+    default: '#A855F7',
+    hover:   '#C084FC',
+    muted:   '#6B21A8',
+    subtle:  '#2E1065',
+    ring:    'rgba(168, 85, 247, 0.5)', // Focus ring (with alpha)
   },
 
   /**
-   * Semantic status colors.
+   * Semantic status colors matching reference charts & badges.
    */
   success: {
-    default: '#22c55e',
-    muted:   '#14532d',
-    subtle:  '#052e16',
+    default: '#22C55E', // Vivid mint/green
+    muted:   '#14532D',
+    subtle:  '#052E16',
   },
   warning: {
-    default: '#f59e0b',
-    muted:   '#78350f',
-    subtle:  '#451a03',
+    default: '#F59E0B', // Amber
+    muted:   '#78350F',
+    subtle:  '#451A03',
   },
   danger: {
-    default: '#ef4444',
-    muted:   '#7f1d1d',
-    subtle:  '#450a0a',
+    default: '#F43F5E', // Vivid Rose/Coral
+    muted:   '#881337',
+    subtle:  '#4C0519',
   },
   info: {
-    default: '#38bdf8',
-    muted:   '#0c4a6e',
-    subtle:  '#082f49',
+    default: '#2DD4BF', // Vibrant Teal / Cyan
+    muted:   '#134E4A',
+    subtle:  '#042F2E',
   },
 
   /**
-   * Text hierarchy.
+   * Text hierarchy tailored to dark purple theme.
    */
   text: {
-    primary:   '#f1f5f9', // Main readable text
-    secondary: '#94a3b8', // Supporting labels, meta info
-    muted:     '#475569', // Placeholders, disabled states
-    inverse:   '#0a0a0f', // Text on light backgrounds
-    link:      '#818cf8', // Inline links
-    code:      '#c084fc', // Inline code tokens
+    primary:   '#FFFFFF', // Main readable text
+    secondary: '#C4BFDE', // Soft lavender secondary labels
+    muted:     '#7B74A3', // Placeholders, disabled states
+    inverse:   '#0F0C1B', // Text on light backgrounds
+    link:      '#C084FC', // Inline links
+    code:      '#E9D5FF', // Inline code tokens
   },
 
   /**
-   * Border and divider colors.
+   * Border and divider colors with soft purple tint.
    */
   border: {
-    default: '#1e1e2e',
-    subtle:  '#16161f',
-    focus:   '#6366f1',
-    danger:  '#ef4444',
+    default: '#2D264E',
+    subtle:  '#1E1938',
+    focus:   '#A855F7',
+    danger:  '#F43F5E',
   },
 
   /**
    * Confidence banding for AI explainability components.
-   * Maps a 0.0–1.0 confidence score to a semantic color.
-   *
-   *   score > 0.75   → confidence.high
-   *   score 0.5–0.75 → confidence.medium
-   *   score < 0.5    → confidence.low
    */
   confidence: {
-    high:        '#22c55e',
-    highMuted:   '#14532d',
-    medium:      '#f59e0b',
-    mediumMuted: '#78350f',
-    low:         '#ef4444',
-    lowMuted:    '#7f1d1d',
+    high:        '#22C55E',
+    highMuted:   '#14532D',
+    medium:      '#F59E0B',
+    mediumMuted: '#78350F',
+    low:         '#F43F5E',
+    lowMuted:    '#881337',
   },
 
   /**
    * Entity type colors for Knowledge Graph nodes.
-   * Used by colorFromType utility and GraphCanvas node rendering.
    */
   entityType: {
-    person:       '#818cf8', // Indigo
-    technology:   '#38bdf8', // Sky
-    project:      '#34d399', // Emerald
-    decision:     '#f59e0b', // Amber
-    concept:      '#c084fc', // Purple
-    organization: '#f97316', // Orange
-    default:      '#94a3b8', // Slate (fallback for unknown types)
+    person:       '#A855F7', // Violet
+    technology:   '#2DD4BF', // Cyan / Teal
+    project:      '#22C55E', // Emerald
+    decision:     '#F59E0B', // Amber
+    concept:      '#E879F9', // Magenta / Pink
+    organization: '#FB923C', // Orange
+    default:      '#C4BFDE', // Lavender slate
   },
 
   /**
    * Memory entry type colors for badge rendering.
    */
   memoryType: {
-    DECISION:      '#f59e0b',
-    CODE:          '#38bdf8',
-    DISCUSSION:    '#818cf8',
-    DOCUMENTATION: '#34d399',
-    INCIDENT:      '#ef4444',
+    DECISION:      '#F59E0B',
+    CODE:          '#2DD4BF',
+    DISCUSSION:    '#A855F7',
+    DOCUMENTATION: '#22C55E',
+    INCIDENT:      '#F43F5E',
   },
 } as const;
 

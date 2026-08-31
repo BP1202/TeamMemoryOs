@@ -85,6 +85,8 @@ import {
   PanelLeft,
   LogOut,
   Menu,
+  Shield,
+  Flame,
 } from 'lucide-react';
 
 import type { LucideIcon } from 'lucide-react';
@@ -119,19 +121,23 @@ export const NavIcons = {
   /** `/` — Dashboard overview */
   Dashboard: LayoutDashboard,
 
-  /** `/memory` — Memory Workspace */
-  Memory: Database,
-
-  /** `/graph` — Knowledge Graph Viewer */
-  Graph: Network,
-
-  /** `/chat` — AI Chat & Retrieval Workspace */
+  /** `/chat` — AI Assistant Workspace */
   Chat: MessageSquare,
 
-  /** `/agents` — Multi-Agent Workspace */
-  Agents: Bot,
+  /** `/knowledge` — Team Knowledge (Timeline + Graph) */
+  Knowledge: Network,
+  Memory: Database,
+  Graph: Network,
 
-  /** `/settings` — Settings (future) */
+  /** `/incidents` — Incident & PR Center */
+  Incidents: Flame,
+  Guardian: Shield,
+
+  /** `/workspace` — Workspace Governance */
+  Workspace: Settings,
+
+  /** Legacy aliases */
+  Agents: Bot,
   Settings,
 } as const satisfies Record<string, LucideIcon>;
 

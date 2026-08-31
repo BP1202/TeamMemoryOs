@@ -1,13 +1,18 @@
 from uuid import UUID
 from datetime import datetime
+from pydantic import BaseModel, ConfigDict, Field
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+try:
+    from pydantic import EmailStr
+except ImportError:
+    EmailStr = str  # type: ignore
 
 
 class UserBase(BaseModel):
     full_name: str = Field(..., max_length=255)
-    email: EmailStr
+    email: str = Field(..., max_length=255)
     is_active: bool = True
+
 
 
 class UserCreate(UserBase):

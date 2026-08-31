@@ -1,7 +1,6 @@
 /**
- * Navigation configuration.
- * Keys map to NavIcons keys for icon resolution.
- * Used by Sidebar and Topbar components.
+ * Navigation configuration for TeamMemoryOS.
+ * 5 Pages: Memory Home, AI Assistant, Memory Book, Daily Quests (Arena), Workspace.
  */
 
 import type { NavItem } from '@typedefs/ui';
@@ -9,41 +8,35 @@ import type { NavItem } from '@typedefs/ui';
 export const primaryNav: NavItem[] = [
   {
     key: 'Dashboard',
-    label: 'Dashboard',
+    label: 'Memory Home',
     path: '/',
     icon: 'Dashboard',
   },
   {
-    key: 'Memory',
-    label: 'Memory',
-    path: '/memory',
-    icon: 'Memory',
-  },
-  {
-    key: 'Graph',
-    label: 'Knowledge Graph',
-    path: '/graph',
-    icon: 'Graph',
-  },
-  {
     key: 'Chat',
-    label: 'AI Chat',
+    label: 'AI Assistant',
     path: '/chat',
     icon: 'Chat',
   },
   {
-    key: 'Agents',
-    label: 'Agents',
-    path: '/agents',
-    icon: 'Agents',
+    key: 'Knowledge',
+    label: 'Memory Book',
+    path: '/knowledge',
+    icon: 'Knowledge',
+  },
+  {
+    key: 'Incidents',
+    label: 'Daily Quests',
+    path: '/incidents',
+    icon: 'Incidents',
   },
 ];
 
 export const bottomNav: NavItem[] = [
   {
-    key: 'Settings',
-    label: 'Settings',
-    path: '/settings',
-    icon: 'Settings',
+    key: 'Workspace',
+    label: 'Workspace',
+    path: '/workspace',
+    icon: 'Workspace',
   },
 ];

@@ -24,16 +24,18 @@ import { LoadingState } from '@components/feedback/LoadingState';
 import { ErrorBoundary } from '@components/feedback/ErrorBoundary';
 import { CommandPalette } from '@components/CommandPalette';
 
+import { LoginPage } from '@features/auth/LoginPage';
+import { OnboardingModal } from '@features/onboarding/OnboardingModal';
+import { GuidedDemoModal } from '@components/GuidedDemoModal';
+
 // ─── Lazy-loaded routes ───────────────────────────────────────────────────
 
-const LoginPage     = lazy(() => import('@features/auth/LoginPage').then((m) => ({ default: m.LoginPage })));
-const DashboardPage = lazy(() => import('@features/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })));
-const MemoryPage    = lazy(() => import('@features/memory/MemoryPage').then((m) => ({ default: m.MemoryPage })));
-const GraphPage     = lazy(() => import('@features/graph/GraphPage').then((m) => ({ default: m.GraphPage })));
-const ChatPage      = lazy(() => import('@features/chat/ChatPage').then((m) => ({ default: m.ChatPage })));
-const AgentsPage    = lazy(() => import('@features/agents/AgentsPage').then((m) => ({ default: m.AgentsPage })));
-const SettingsPage  = lazy(() => import('@features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
-const NotFoundPage  = lazy(() => import('@features/NotFoundPage').then((m) => ({ default: m.NotFoundPage })));
+const DashboardPage        = lazy(() => import('@features/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })));
+const KnowledgePage        = lazy(() => import('@features/memory/KnowledgePage').then((m) => ({ default: m.KnowledgePage })));
+const ChatPage             = lazy(() => import('@features/chat/ChatPage').then((m) => ({ default: m.ChatPage })));
+const IncidentPRCenterPage = lazy(() => import('@features/incidents/IncidentPRCenterPage').then((m) => ({ default: m.IncidentPRCenterPage })));
+const WorkspacePage        = lazy(() => import('@features/workspace/WorkspacePage').then((m) => ({ default: m.WorkspacePage })));
+const NotFoundPage         = lazy(() => import('@features/NotFoundPage').then((m) => ({ default: m.NotFoundPage })));
 
 // ─── Route fallback ───────────────────────────────────────────────────────
 
@@ -52,8 +54,10 @@ function InnerRouter() {
 
   return (
     <ApiInterceptorBootstrap navigate={navigate}>
-      {/* CommandPalette mounted at root — available on all authenticated pages */}
+      {/* CommandPalette, OnboardingModal & GuidedDemoModal mounted at root */}
       <CommandPalette />
+      <OnboardingModal />
+      <GuidedDemoModal />
 
       <Routes>
         <Route element={<RootLayout />} errorElement={<ErrorLayout />}>
@@ -67,6 +71,7 @@ function InnerRouter() {
               </AuthGuard>
             }
           >
+            {/* 1. 🏠 Home */}
             <Route
               index
               element={
@@ -75,34 +80,8 @@ function InnerRouter() {
                 </RouteSuspense>
               }
             />
-            {/* Memory Workspace */}
-            <Route
-              path="/memory"
-              element={
-                <RouteSuspense>
-                  <MemoryPage />
-                </RouteSuspense>
-              }
-            />
-            {/* Deep-link to a memory entry */}
-            <Route
-              path="/memory/:memoryId"
-              element={
-                <RouteSuspense>
-                  <MemoryPage />
-                </RouteSuspense>
-              }
-            />
-            {/* Knowledge Graph Workspace */}
-            <Route
-              path="/graph"
-              element={
-                <RouteSuspense>
-                  <GraphPage />
-                </RouteSuspense>
-              }
-            />
-            {/* AI Chat Workspace */}
+
+            {/* 2. 🤖 AI Assistant */}
             <Route
               path="/chat"
               element={
@@ -112,61 +91,89 @@ function InnerRouter() {
               }
             />
 
-            {/* Multi-Agent Workspace */}
+            {/* 3. 🧠 Team Knowledge (Timeline + Graph) */}
             <Route
-              path="/agents"
+              path="/knowledge"
               element={
                 <RouteSuspense>
-                  <AgentsPage />
+                  <KnowledgePage />
                 </RouteSuspense>
               }
             />
             <Route
-              path="/agents/workflow"
+              path="/memory"
               element={
                 <RouteSuspense>
-                  <AgentsPage />
+                  <KnowledgePage />
                 </RouteSuspense>
               }
             />
             <Route
-              path="/agents/repository"
+              path="/memory/:memoryId"
               element={
                 <RouteSuspense>
-                  <AgentsPage />
+                  <KnowledgePage />
                 </RouteSuspense>
               }
             />
             <Route
-              path="/agents/debug"
+              path="/graph"
               element={
                 <RouteSuspense>
-                  <AgentsPage />
+                  <KnowledgePage />
                 </RouteSuspense>
               }
             />
 
-            {/* Settings */}
+            {/* 4. 🚨 Incident & PR Defense Center */}
+            <Route
+              path="/incidents"
+              element={
+                <RouteSuspense>
+                  <IncidentPRCenterPage />
+                </RouteSuspense>
+              }
+            />
+            <Route
+              path="/guardian"
+              element={
+                <RouteSuspense>
+                  <IncidentPRCenterPage />
+                </RouteSuspense>
+              }
+            />
+
+            {/* 5. ⚙️ Workspace & Governance */}
+            <Route
+              path="/workspace"
+              element={
+                <RouteSuspense>
+                  <WorkspacePage />
+                </RouteSuspense>
+              }
+            />
             <Route
               path="/settings"
               element={
                 <RouteSuspense>
-                  <SettingsPage />
+                  <WorkspacePage />
+                </RouteSuspense>
+              }
+            />
+            <Route
+              path="/agents"
+              element={
+                <RouteSuspense>
+                  <WorkspacePage />
                 </RouteSuspense>
               }
             />
           </Route>
 
+
           {/* Auth (unauthenticated) */}
           <Route element={<AuthLayout />}>
-            <Route
-              path="/login"
-              element={
-                <RouteSuspense>
-                  <LoginPage />
-                </RouteSuspense>
-              }
-            />
+            <Route path="/login" element={<LoginPage />} />
           </Route>
 
           {/* 404 — global NotFound */}

@@ -19,7 +19,12 @@ from app.api.v1.scenarios import router as scenarios_router
 from app.api.v1.terminal import router as terminal_router
 from app.api.v1.users import router as users_router
 
+from app.api.v1.v5_router import v5_router
+
 api_router = APIRouter()
+
+# TeamMemoryOS v5 — 10 Core Unified Endpoints
+api_router.include_router(v5_router, tags=["TeamMemoryOS v5 Core"])
 
 api_router.include_router(auth_router, prefix="/auth", tags=["Auth"])
 api_router.include_router(health_router, prefix="/health", tags=["Health"])
@@ -41,3 +46,4 @@ api_router.include_router(code_search_router, prefix="/code", tags=["CodeSearch"
 api_router.include_router(engineering_router, prefix="/engineering", tags=["Engineering"])
 # Sprint 7 — Multi-Agent Intelligence Platform
 api_router.include_router(agents_router, prefix="/agents", tags=["Agents"])
+

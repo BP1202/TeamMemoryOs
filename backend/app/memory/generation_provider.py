@@ -130,6 +130,75 @@ class GraniteProvider:
 
 
 # ---------------------------------------------------------------------------
+# Ollama IBM Granite Provider (Local Ollama API)
+# ---------------------------------------------------------------------------
+
+class OllamaGraniteProvider:
+    """Calls local Ollama running IBM Granite (e.g. granite3-dense or granite-code).
+
+    Connects to Ollama's HTTP API at `OLLAMA_BASE_URL` (default: http://localhost:11434).
+    If Ollama is unavailable or errors, gracefully falls back to structured reasoning stub.
+    """
+
+    def __init__(self) -> None:
+        self._base_url = settings.OLLAMA_BASE_URL.rstrip("/")
+        self._model = settings.OLLAMA_MODEL
+        self._stub = StubGenerationProvider()
+
+    @property
+    def provider_name(self) -> str:
+        return f"ollama/{self._model}"
+
+    def generate(self, prompt: str) -> str:
+        import json
+        import urllib.request
+        import urllib.error
+
+        # Ensure model is available or auto-discover from Ollama
+        model_name = self._model
+        try:
+            with urllib.request.urlopen(f"{self._base_url}/api/tags", timeout=3) as tag_resp:
+                if tag_resp.status == 200:
+                    tags_data = json.loads(tag_resp.read().decode("utf-8"))
+                    models = [m.get("name") for m in tags_data.get("models", [])]
+                    if model_name not in models and len(models) > 0:
+                        # Find granite model or use first available
+                        granite_models = [m for m in models if "granite" in m.lower()]
+                        model_name = granite_models[0] if granite_models else models[0]
+        except Exception:
+            pass
+
+        req_payload = {
+            "model": model_name,
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "temperature": 0.2,
+                "num_predict": settings.GRANITE_MAX_TOKENS,
+            }
+        }
+        
+        try:
+            req_data = json.dumps(req_payload).encode("utf-8")
+            req = urllib.request.Request(
+                f"{self._base_url}/api/generate",
+                data=req_data,
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=20) as response:
+                if response.status == 200:
+                    resp_json = json.loads(response.read().decode("utf-8"))
+                    text = resp_json.get("response", "").strip()
+                    if text:
+                        return text
+        except Exception:
+            pass
+
+        return self._stub.generate(prompt)
+
+
+# ---------------------------------------------------------------------------
 # Factory — resolves provider from settings
 # ---------------------------------------------------------------------------
 
@@ -137,9 +206,13 @@ def get_generation_provider() -> GenerationProvider:
     """Return the configured ``GenerationProvider`` instance.
 
     Reads ``GRANITE_PROVIDER`` from settings:
-    * ``"stub"``    → ``StubGenerationProvider`` (default, no credentials)
-    * ``"granite"`` → ``GraniteProvider`` (requires IBM credentials)
+    * ``"ollama"``  → ``OllamaGraniteProvider`` (Local Ollama with IBM Granite)
+    * ``"granite"`` → ``GraniteProvider`` (watsonx.ai API)
+    * ``"stub"``    → ``StubGenerationProvider`` (default deterministic)
     """
+    if settings.GRANITE_PROVIDER == "ollama":
+        return OllamaGraniteProvider()
     if settings.GRANITE_PROVIDER == "granite":
         return GraniteProvider()
     return StubGenerationProvider()
+
