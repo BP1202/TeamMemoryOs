@@ -100,6 +100,21 @@ export function DashboardPage() {
     }
     return FEATURED_MEMORIES;
   });
+  const activeOrg = useMemo(() => {
+    try {
+      const stored = localStorage.getItem('teammemory_active_organization');
+      if (stored) return JSON.parse(stored);
+    } catch (e) {
+      // pass
+    }
+    return {
+      name: 'SunBots Technologies',
+      adminName: 'Sarah Connor',
+      invitedEmails: ['devin@sunbots.ai', 'alex@sunbots.ai', 'morgan@sunbots.ai'],
+      techStack: ['FastAPI', 'PostgreSQL', 'pgvector', 'Redis', 'Docker'],
+    };
+  }, []);
+
   const [selectedMemory, setSelectedMemory] = useState<MemoryCard | null>(null);
 
   // 4-Field Save Form State
@@ -201,8 +216,8 @@ export function DashboardPage() {
       {/* 1. HERO SPOTLIGHT SEARCH                                      */}
       {/* ───────────────────────────────────────────────────────────── */}
       <div className="text-center max-w-3xl mx-auto space-y-4 pt-4">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-[#8B5CF6]/15 text-[#C4B5FD] border border-[#8B5CF6]/30 rounded-full text-xs font-mono">
-          <span>🧠</span>
+        <div className="inline-flex items-center gap-1.5 px-3 py-0.5 bg-[#8B5CF6]/15 text-[#C4B5FD] border border-[#8B5CF6]/30 rounded-full text-xs font-mono">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#8B5CF6]" />
           <span>TeamMemoryOS</span>
         </div>
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
@@ -227,21 +242,21 @@ export function DashboardPage() {
             }}
             className="relative flex items-center bg-[#141224] border border-[#2D264E] focus-within:border-[#8B5CF6] focus-within:ring-2 focus-within:ring-[#8B5CF6]/30 rounded-2xl shadow-2xl transition-all"
           >
-            <span className="pl-5 text-lg text-[#A5A0C8]">🔍</span>
+            <span className="pl-5 text-sm text-[#A5A0C8] font-mono">search/</span>
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search error logs, JWT expired, Redis timeout, PostgreSQL pool, CORS..."
-              className="w-full bg-transparent px-4 py-4 text-sm sm:text-base text-white placeholder-zinc-500 focus:outline-none"
+              placeholder="error logs, JWT expired, Redis timeout, PostgreSQL pool, CORS..."
+              className="w-full bg-transparent px-3 py-4 text-sm sm:text-base text-white placeholder-zinc-500 focus:outline-none"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="pr-5 text-xs text-[#A5A0C8] hover:text-white font-bold"
+                className="pr-5 text-xs text-[#A5A0C8] hover:text-white"
               >
-                ✕ Clear
+                Clear
               </button>
             )}
           </form>
@@ -282,13 +297,15 @@ export function DashboardPage() {
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="text-base">{mem.avatar}</span>
+                          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#8B5CF6]/20 text-[#C4B5FD] font-bold">
+                            {mem.category}
+                          </span>
                           <h4 className="text-xs font-bold text-white group-hover:text-[#C4B5FD] transition-colors">
                             {mem.title}
                           </h4>
                         </div>
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#8B5CF6]/20 text-[#C4B5FD] border border-[#8B5CF6]/30">
-                          {mem.category}
+                        <span className="text-[10px] font-mono text-[#22C55E]">
+                          Reused {mem.reused_count}x
                         </span>
                       </div>
 
@@ -342,47 +359,59 @@ export function DashboardPage() {
       </div>
 
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* 2. REAL AI WORKSPACE HEALTH CARDS (No Fake Metrics)            */}
+      {/* 2. REAL AI WORKSPACE HEALTH CARDS (Dynamic to Active Org)      */}
       {/* ───────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Memory Coverage */}
         <div className="p-5 bg-[#141224] border border-[#2D264E] rounded-2xl space-y-1.5 shadow-lg">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-mono uppercase tracking-wider text-[#8B5CF6] font-bold">Memory Coverage</span>
-            <span className="text-base">📦</span>
+            <span className="text-[10px] font-mono text-[#8B5CF6] bg-[#8B5CF6]/15 px-1.5 py-0.5 rounded">KB</span>
           </div>
-          <p className="text-xl font-bold text-white font-mono">24 Verified Fixes</p>
+          <p className="text-xl font-bold text-white font-mono">{memories.length} Verified Fixes</p>
           <p className="text-xs text-[#A5A0C8]">Permanent institutional solutions stored in database.</p>
         </div>
 
-        {/* Card 2: Knowledge Gaps */}
+        {/* Card 2: Monitored Services */}
         <div className="p-5 bg-[#141224] border border-[#2D264E] rounded-2xl space-y-1.5 shadow-lg">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-[#F59E0B] font-bold">Knowledge Gaps</span>
-            <span className="text-base">⚠️</span>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-[#22D3EE] font-bold">Active Tech Stack</span>
+            <span className="text-[10px] font-mono text-[#22D3EE] bg-[#22D3EE]/15 px-1.5 py-0.5 rounded">SERVICES</span>
           </div>
-          <p className="text-xl font-bold text-[#F59E0B] font-mono">5 Services</p>
-          <p className="text-xs text-[#A5A0C8]">5 microservices currently lack documentation.</p>
+          <p className="text-xl font-bold text-[#22D3EE] font-mono">
+            {activeOrg.techStack?.length || 5} Services
+          </p>
+          <p className="text-xs text-[#A5A0C8]">
+            Connected infrastructure services monitored for {activeOrg.name}.
+          </p>
         </div>
 
         {/* Card 3: Most Reused Memory */}
         <div className="p-5 bg-[#141224] border border-[#2D264E] rounded-2xl space-y-1.5 shadow-lg">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-[#22D3EE] font-bold">Most Reused Memory</span>
-            <span className="text-base">⭐</span>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-[#F59E0B] font-bold">Top Verified Solution</span>
+            <span className="text-[10px] font-mono text-[#F59E0B] bg-[#F59E0B]/15 px-1.5 py-0.5 rounded">TOP</span>
           </div>
-          <p className="text-sm font-bold text-white truncate">JWT Authentication</p>
-          <p className="text-xs text-[#22D3EE] font-mono">Reused 17 times by engineers</p>
+          <p className="text-sm font-bold text-white truncate">
+            {memories[0]?.title || 'PostgreSQL Connection Optimization'}
+          </p>
+          <p className="text-xs text-[#F59E0B] font-mono">
+            Reused {memories[0]?.reused_count || 17} times by team
+          </p>
         </div>
 
         {/* Card 4: AI Saved This Week */}
         <div className="p-5 bg-[#141224] border border-[#2D264E] rounded-2xl space-y-1.5 shadow-lg">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-mono uppercase tracking-wider text-[#22C55E] font-bold">AI Saved This Week</span>
-            <span className="text-base">⚡</span>
+            <span className="text-[10px] font-mono text-[#22C55E] bg-[#22C55E]/15 px-1.5 py-0.5 rounded">HOURS</span>
           </div>
-          <p className="text-xl font-bold text-[#22C55E] font-mono">8.5 Hours</p>
-          <p className="text-xs text-[#A5A0C8]">Estimated engineering time saved this week.</p>
+          <p className="text-xl font-bold text-[#22C55E] font-mono">
+            {((activeOrg.invitedEmails?.length || 3) + 1) * 2.5} Hours
+          </p>
+          <p className="text-xs text-[#A5A0C8]">
+            Across {(activeOrg.invitedEmails?.length || 3) + 1} active team engineers.
+          </p>
         </div>
       </div>
 
@@ -463,12 +492,13 @@ export function DashboardPage() {
         <div className="lg:col-span-7 space-y-4">
           <div className="flex items-center justify-between pb-1">
             <div>
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <span>📖</span> Reusable Team Memories
+              <h2 className="text-lg font-bold text-white">
+                Reusable Team Memories
               </h2>
               <p className="text-xs text-[#A5A0C8]">One problem solved once → reused forever.</p>
             </div>
             <button
+              type="button"
               onClick={() => navigate('/knowledge')}
               className="text-xs text-[#C4B5FD] hover:text-white font-medium"
             >
@@ -499,8 +529,11 @@ export function DashboardPage() {
                 </div>
 
                 <div className="flex items-center justify-between pt-3 border-t border-[#2D264E] text-[11px] text-[#A5A0C8]">
-                  <span className="flex items-center gap-1.5">
-                    <span>{mem.avatar}</span> {mem.author}
+                  <span className="flex items-center gap-1.5 font-mono">
+                    <span className="h-5 w-5 rounded bg-[#8B5CF6]/20 text-[#C4B5FD] flex items-center justify-center text-[9px] font-bold">
+                      {mem.author.replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase() || 'TM'}
+                    </span>
+                    <span>{mem.author}</span>
                   </span>
                   <span className="text-[#C4B5FD] font-semibold">Open Memory →</span>
                 </div>
@@ -512,8 +545,8 @@ export function DashboardPage() {
         {/* Right (5 cols): Save A New Solution + Smart Duplicate Detection */}
         <div className="lg:col-span-5 bg-[#141224] border border-[#2D264E] rounded-3xl p-6 shadow-2xl space-y-4 h-fit">
           <div className="pb-3 border-b border-[#2D264E]">
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <span>✍️</span> Save a New Solution
+            <h3 className="text-base font-bold text-white">
+              Save a New Solution
             </h3>
             <p className="text-xs text-[#A5A0C8] mt-0.5">
               Turn your debugging session into permanent team knowledge.

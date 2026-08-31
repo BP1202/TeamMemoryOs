@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
+import { useAuthStore } from '@stores/authStore';
 
 interface MemoryItem {
   id: string;
@@ -34,8 +35,8 @@ const MEMORY_CATALOG: MemoryItem[] = [
     pool_pre_ping=True,
     pool_recycle=3600
 )`,
-    verified_by: 'Sarah (Tech Lead)',
-    avatar: '🎯',
+    verified_by: 'Sarah Connor',
+    avatar: 'SC',
     times_reused: 24,
     date: 'Yesterday',
     related_services: ['PostgreSQL Database', 'Async Worker Queue', 'API Gateway'],
@@ -51,8 +52,8 @@ const MEMORY_CATALOG: MemoryItem[] = [
     working_solution: 'Enforce explicit algorithms=["HS256"] in jwt.decode with 30-second clock skew tolerance.',
     code_patch: `def verify_token(token: str):
     return jwt.decode(token, SECRET_KEY, algorithms=["HS256"], options={"leeway": 30})`,
-    verified_by: 'Devin (Developer)',
-    avatar: '💻',
+    verified_by: 'Devin Thorne',
+    avatar: 'DT',
     times_reused: 28,
     date: '3 days ago',
     related_services: ['Auth Service', 'User Service', 'API Gateway'],
@@ -68,8 +69,8 @@ const MEMORY_CATALOG: MemoryItem[] = [
     working_solution: 'Wrap checkout and payment handlers with atomic Redis distributed lock.',
     code_patch: `with redis_client.lock("checkout_lock", timeout=15):
     process_payment(order_id)`,
-    verified_by: 'Alex (Owner)',
-    avatar: '👑',
+    verified_by: 'Alex Vance',
+    avatar: 'AV',
     times_reused: 19,
     date: '5 days ago',
     related_services: ['Billing Service', 'Redis Cache', 'Worker Queue'],
@@ -90,8 +91,8 @@ const MEMORY_CATALOG: MemoryItem[] = [
     allow_methods=["*"],
     allow_headers=["*"],
 )`,
-    verified_by: 'Devin (Developer)',
-    avatar: '💻',
+    verified_by: 'Devin Thorne',
+    avatar: 'DT',
     times_reused: 35,
     date: '1 week ago',
     related_services: ['Frontend React App', 'Backend FastAPI'],
@@ -99,37 +100,16 @@ const MEMORY_CATALOG: MemoryItem[] = [
   },
   {
     id: 'MEM-005',
-    title: 'Docker Container Out of Memory During Build',
-    category: 'Docker',
-    problem: 'Docker build process failing during Python wheels compilation on dev workstations.',
-    symptoms: 'The command /bin/sh -c pip install returned a non-zero code: 137 (OOM killed)',
-    root_cause: 'Container memory limit set below 1GB during heavy C-extension compilation.',
-    working_solution: 'Add resource limits and memory reservations in docker-compose specification.',
-    code_patch: `services:
-  backend:
-    deploy:
-      resources:
-        limits:
-          memory: 2048M`,
-    verified_by: 'Morgan (Auditor)',
-    avatar: '🛡️',
-    times_reused: 12,
-    date: '2 weeks ago',
-    related_services: ['Docker Compose', 'CI/CD Pipeline'],
-    related_memories: ['DEV-004: Docker Infrastructure'],
-  },
-  {
-    id: 'MEM-006',
-    title: 'Raw SQL Injection Pattern Blocked by Security Policy',
-    category: 'Security',
-    problem: 'Developer attempted to build dynamic query using Python f-strings without parameter binding.',
-    symptoms: 'Policy violation detected: Raw string interpolation in database query execution',
-    root_cause: 'Direct variable interpolation into SQL statements bypassed parameter escaping.',
-    working_solution: 'Use SQLAlchemy 2.0 ORM query syntax with bound parameters.',
+    title: 'SQLAlchemy 2.0 Select Statement Migration & Parameterization',
+    category: 'Database',
+    problem: 'Legacy db.session.query() statements causing deprecation warnings in SQLAlchemy 2.0.',
+    symptoms: 'RemovedIn20Warning: The Query.get() method is considered legacy as of the 1.x series',
+    root_cause: 'SQLAlchemy 2.0 transition requires modern select() and session.scalars() paradigm.',
+    working_solution: 'Migrate to select(Model).where() with session.scalars(stmt).first().',
     code_patch: `stmt = select(User).where(User.email == email)
 user = db.scalars(stmt).first()`,
-    verified_by: 'Sarah (Tech Lead)',
-    avatar: '🎯',
+    verified_by: 'Sarah Connor',
+    avatar: 'SC',
     times_reused: 15,
     date: '2 weeks ago',
     related_services: ['PostgreSQL Database', 'User Service'],
@@ -140,7 +120,9 @@ user = db.scalars(stmt).first()`,
 const CATEGORIES = ['ALL', 'Database', 'Authentication', 'Backend', 'Frontend', 'Docker', 'Security'];
 
 export function KnowledgePage() {
-  const [memories] = useState<MemoryItem[]>(() => {
+  const user = useAuthStore((s) => s.user);
+
+  const [memories, setMemories] = useState<MemoryItem[]>(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('teammemory_saved_memories') || '[]');
       if (Array.isArray(saved) && saved.length > 0) {
@@ -157,6 +139,57 @@ export function KnowledgePage() {
   const [viewMode, setViewMode] = useState<'gallery' | 'timeline' | 'list'>('gallery');
   const [activeMemory, setActiveMemory] = useState<MemoryItem | null>(null);
 
+  // Add Memory Modal State
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newCategory, setNewCategory] = useState('Backend');
+  const [newProblem, setNewProblem] = useState('');
+  const [newSolution, setNewSolution] = useState('');
+  const [newCodePatch, setNewCodePatch] = useState('');
+  const [newServices, setNewServices] = useState('Core Backend API, PostgreSQL');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const handleCreateMemory = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitle.trim() || !newSolution.trim()) return;
+
+    const authorName = user?.full_name || 'Engineering Team';
+    const authorInitials = authorName.replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase() || 'EN';
+
+    const newMem: MemoryItem = {
+      id: `MEM-00${memories.length + 1}`,
+      title: newTitle.trim(),
+      category: newCategory,
+      problem: newProblem.trim() || 'Documented team resolution.',
+      symptoms: newProblem.trim().slice(0, 80),
+      root_cause: newProblem.trim() || 'Applied engineering architectural standard.',
+      working_solution: newSolution.trim(),
+      code_patch: newCodePatch.trim(),
+      verified_by: authorName,
+      avatar: authorInitials,
+      times_reused: 1,
+      date: 'Just now',
+      related_services: newServices.split(',').map((s) => s.trim()).filter(Boolean),
+      related_memories: ['Verified Team Resolution'],
+    };
+
+    const updated = [newMem, ...memories];
+    setMemories(updated);
+    try {
+      localStorage.setItem('teammemory_saved_memories', JSON.stringify(updated));
+    } catch (e) {}
+
+    // Reset Form
+    setNewTitle('');
+    setNewProblem('');
+    setNewSolution('');
+    setNewCodePatch('');
+    setShowCreateModal(false);
+
+    setToastMessage(`✓ "${newMem.title}" successfully added to Memory Book`);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
   const filteredMemories = memories.filter((m) => {
     const matchesCat = selectedCategory === 'ALL' || m.category.toLowerCase() === selectedCategory.toLowerCase();
     const matchesSearch =
@@ -168,6 +201,14 @@ export function KnowledgePage() {
 
   return (
     <div className="min-h-screen bg-[#0B0914] text-white p-6 md:p-10 space-y-8 font-sans max-w-7xl mx-auto">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-6 right-6 z-50 px-4 py-3 bg-[#22C55E]/15 border border-[#22C55E]/40 text-[#22C55E] rounded-2xl text-xs font-mono shadow-2xl backdrop-blur-md animate-fade-in flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-[#22C55E]" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* Header & View Switcher */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#2D264E]">
         <div>
@@ -176,49 +217,63 @@ export function KnowledgePage() {
               Institutional Knowledge Library
             </span>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#8B5CF6]/15 text-[#C4B5FD] border border-[#8B5CF6]/30 font-medium">
-              Notion-Grade
+              Verified Solutions
             </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
-            <span>📖</span> Memory Book
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+            Memory Book
           </h1>
           <p className="text-xs text-[#A5A0C8] mt-0.5">
             Every engineering problem solved once becomes reusable team knowledge for everyone.
           </p>
         </div>
 
-        {/* View Switcher: Gallery | Timeline | List */}
-        <div className="flex items-center gap-1 bg-[#141224] border border-[#2D264E] p-1 rounded-2xl text-xs shadow-xl">
+        <div className="flex items-center gap-3">
+          {/* Primary + Add Memory Button */}
           <button
-            onClick={() => setViewMode('gallery')}
-            className={`px-3 py-1.5 font-bold rounded-xl transition-all ${
-              viewMode === 'gallery'
-                ? 'bg-[#8B5CF6] text-white shadow-md shadow-[#8B5CF6]/20'
-                : 'text-[#A5A0C8] hover:text-white'
-            }`}
+            type="button"
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-2 bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] hover:from-[#7C3AED] hover:to-[#5B21B6] text-white font-bold text-xs rounded-xl shadow-lg shadow-[#8B5CF6]/25 transition-all flex items-center gap-1.5"
           >
-            🖼️ Gallery
+            <span>+ Add Memory</span>
           </button>
-          <button
-            onClick={() => setViewMode('timeline')}
-            className={`px-3 py-1.5 font-bold rounded-xl transition-all ${
-              viewMode === 'timeline'
-                ? 'bg-[#8B5CF6] text-white shadow-md shadow-[#8B5CF6]/20'
-                : 'text-[#A5A0C8] hover:text-white'
-            }`}
-          >
-            ⏱️ Timeline
-          </button>
-          <button
-            onClick={() => setViewMode('list')}
-            className={`px-3 py-1.5 font-bold rounded-xl transition-all ${
-              viewMode === 'list'
-                ? 'bg-[#8B5CF6] text-white shadow-md shadow-[#8B5CF6]/20'
-                : 'text-[#A5A0C8] hover:text-white'
-            }`}
-          >
-            📋 List
-          </button>
+
+          {/* View Switcher: Gallery | Timeline | List */}
+          <div className="flex items-center gap-1 bg-[#141224] border border-[#2D264E] p-1 rounded-2xl text-xs shadow-xl">
+            <button
+              type="button"
+              onClick={() => setViewMode('gallery')}
+              className={`px-3 py-1.5 font-bold rounded-xl transition-all ${
+                viewMode === 'gallery'
+                  ? 'bg-[#8B5CF6] text-white shadow-md shadow-[#8B5CF6]/20'
+                  : 'text-[#A5A0C8] hover:text-white'
+              }`}
+            >
+              Gallery
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('timeline')}
+              className={`px-3 py-1.5 font-bold rounded-xl transition-all ${
+                viewMode === 'timeline'
+                  ? 'bg-[#8B5CF6] text-white shadow-md shadow-[#8B5CF6]/20'
+                  : 'text-[#A5A0C8] hover:text-white'
+              }`}
+            >
+              Timeline
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-1.5 font-bold rounded-xl transition-all ${
+                viewMode === 'list'
+                  ? 'bg-[#8B5CF6] text-white shadow-md shadow-[#8B5CF6]/20'
+                  : 'text-[#A5A0C8] hover:text-white'
+              }`}
+            >
+              List
+            </button>
+          </div>
         </div>
       </div>
 
@@ -229,6 +284,7 @@ export function KnowledgePage() {
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
+              type="button"
               onClick={() => setSelectedCategory(cat)}
               className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border ${
                 selectedCategory === cat
@@ -248,7 +304,7 @@ export function KnowledgePage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search verified fixes..."
-            className="w-full bg-[#141224] border border-[#2D264E] focus:border-[#8B5CF6] rounded-xl px-4 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none"
+            className="w-full bg-[#141224] border border-[#2D264E] focus:border-[#8B5CF6] rounded-xl px-4 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none font-mono"
           />
         </div>
       </div>
@@ -280,10 +336,13 @@ export function KnowledgePage() {
               </div>
 
               <div className="pt-3 border-t border-[#2D264E] flex items-center justify-between text-xs text-[#A5A0C8]">
-                <span className="flex items-center gap-1.5">
-                  <span>{mem.avatar}</span> {mem.verified_by}
+                <span className="flex items-center gap-2 font-mono">
+                  <div className="h-6 w-6 rounded-md bg-[#8B5CF6]/20 text-[#C4B5FD] flex items-center justify-center text-[10px] font-bold">
+                    {mem.avatar || 'EN'}
+                  </div>
+                  <span>{mem.verified_by}</span>
                 </span>
-                <span className="text-[#C4B5FD] font-semibold">Open Solution →</span>
+                <span className="text-[#C4B5FD] font-semibold text-xs">Open Solution →</span>
               </div>
             </m.div>
           ))}
@@ -291,33 +350,38 @@ export function KnowledgePage() {
       )}
 
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* VIEW 2: Timeline View (Chronological Engineering History)     */}
+      {/* VIEW 2: Timeline View                                         */}
       {/* ───────────────────────────────────────────────────────────── */}
       {viewMode === 'timeline' && (
         <div className="relative pl-6 sm:pl-8 border-l border-[#8B5CF6]/30 space-y-8 max-w-4xl mx-auto">
           {filteredMemories.map((mem) => (
             <div key={mem.id} className="relative group">
-              {/* Dot */}
-              <div className="absolute -left-[31px] sm:-left-[39px] top-1.5 h-4 w-4 rounded-full bg-[#8B5CF6] border-4 border-[#0B0914] shadow-lg shadow-[#8B5CF6]/50" />
+              <div className="absolute -left-[31px] sm:-left-[39px] top-1.5 h-4 w-4 rounded-full bg-[#8B5CF6] border-4 border-[#0B0914] shadow-md shadow-[#8B5CF6]/50" />
 
               <div
                 onClick={() => setActiveMemory(mem)}
-                className="bg-[#141224] hover:bg-[#1A1730] border border-[#2D264E] hover:border-[#8B5CF6]/50 rounded-3xl p-6 shadow-xl cursor-pointer transition-all space-y-3"
+                className="bg-[#141224] border border-[#2D264E] hover:border-[#8B5CF6]/50 rounded-2xl p-5 shadow-lg cursor-pointer transition-all space-y-3"
               >
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full bg-[#8B5CF6]/20 text-[#C4B5FD] border border-[#8B5CF6]/30 font-bold">
-                    {mem.category} • {mem.id}
-                  </span>
-                  <span className="text-[#A5A0C8] font-mono">{mem.date}</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#8B5CF6]/20 text-[#C4B5FD] font-bold">
+                      {mem.category}
+                    </span>
+                    <span className="text-xs text-[#A5A0C8] font-mono">{mem.date}</span>
+                  </div>
+                  <span className="text-xs text-[#22C55E] font-mono">Reused {mem.times_reused} times</span>
                 </div>
 
-                <h3 className="text-base font-bold text-white">{mem.title}</h3>
+                <h3 className="text-sm font-bold text-white group-hover:text-[#C4B5FD] transition-colors">
+                  {mem.title}
+                </h3>
                 <p className="text-xs text-[#A5A0C8]">{mem.problem}</p>
 
-                <div className="flex items-center justify-between pt-2 border-t border-[#2D264E] text-xs text-[#A5A0C8]">
-                  <span>Verified by {mem.verified_by}</span>
-                  <span className="text-[#22C55E] font-mono font-bold">Used {mem.times_reused} times</span>
-                </div>
+                {mem.code_patch && (
+                  <pre className="p-3 bg-[#0B0914] border border-[#2D264E] rounded-xl font-mono text-[11px] text-[#C4B5FD] overflow-x-auto">
+                    <code>{mem.code_patch.slice(0, 120)}...</code>
+                  </pre>
+                )}
               </div>
             </div>
           ))}
@@ -325,156 +389,236 @@ export function KnowledgePage() {
       )}
 
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* VIEW 3: List View (Searchable Table)                          */}
+      {/* VIEW 3: List View                                             */}
       {/* ───────────────────────────────────────────────────────────── */}
       {viewMode === 'list' && (
-        <div className="bg-[#141224] border border-[#2D264E] rounded-3xl shadow-xl overflow-hidden">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#1E1938] border-b border-[#2D264E] text-[#A5A0C8] font-mono text-[11px]">
-              <tr>
-                <th className="p-4">ID & Title</th>
-                <th className="p-4">Category</th>
-                <th className="p-4">Verified By</th>
-                <th className="p-4">Times Reused</th>
-                <th className="p-4 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#2D264E]">
-              {filteredMemories.map((mem) => (
-                <tr
-                  key={mem.id}
-                  onClick={() => setActiveMemory(mem)}
-                  className="hover:bg-white/[0.02] cursor-pointer transition-colors"
-                >
-                  <td className="p-4">
-                    <span className="font-mono text-[#8B5CF6] font-bold mr-2">{mem.id}</span>
-                    <strong className="text-white">{mem.title}</strong>
-                  </td>
-                  <td className="p-4">
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#8B5CF6]/15 text-[#C4B5FD]">
+        <div className="bg-[#141224] border border-[#2D264E] rounded-2xl overflow-hidden shadow-xl">
+          <div className="divide-y divide-[#2D264E]">
+            {filteredMemories.map((mem) => (
+              <div
+                key={mem.id}
+                onClick={() => setActiveMemory(mem)}
+                className="p-4 sm:p-5 hover:bg-[#1E1938] cursor-pointer transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#8B5CF6]/20 text-[#C4B5FD] font-bold">
                       {mem.category}
                     </span>
-                  </td>
-                  <td className="p-4 text-[#A5A0C8]">{mem.verified_by}</td>
-                  <td className="p-4 font-mono text-[#22C55E] font-bold">{mem.times_reused}x</td>
-                  <td className="p-4 text-right text-[#C4B5FD] font-semibold">View →</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    <h3 className="text-sm font-bold text-white">{mem.title}</h3>
+                  </div>
+                  <p className="text-xs text-[#A5A0C8] line-clamp-1">{mem.problem}</p>
+                </div>
+
+                <div className="flex items-center gap-4 text-xs font-mono text-[#A5A0C8] flex-shrink-0">
+                  <span>Reused {mem.times_reused}x</span>
+                  <span>{mem.verified_by}</span>
+                  <span className="text-[#C4B5FD] font-bold">View →</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* DETAIL MODAL: Structured Memory Deep Dive                     */}
+      {/* MODAL 1: ADD NEW MEMORY MODAL                                 */}
       {/* ───────────────────────────────────────────────────────────── */}
       <AnimatePresence>
-        {activeMemory && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+        {showCreateModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
             <m.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="w-full max-w-3xl bg-[#141224] border border-[#8B5CF6]/40 rounded-3xl p-6 sm:p-8 space-y-5 shadow-2xl relative max-h-[90vh] overflow-y-auto"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-[#141224] border border-[#8B5CF6]/50 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 shadow-2xl space-y-5"
             >
-              {/* Header */}
-              <div className="flex items-start justify-between gap-4 pb-3 border-b border-[#2D264E]">
+              <div className="flex items-center justify-between pb-3 border-b border-[#2D264E]">
                 <div>
-                  <span className="text-[10px] font-mono uppercase bg-[#8B5CF6]/20 text-[#C4B5FD] px-2.5 py-0.5 rounded-full border border-[#8B5CF6]/30 font-bold">
-                    {activeMemory.category} • {activeMemory.id}
-                  </span>
-                  <h3 className="text-xl font-bold text-white mt-1.5">{activeMemory.title}</h3>
+                  <h2 className="text-lg font-bold text-white">Add Solution to Memory Book</h2>
+                  <p className="text-xs text-[#A5A0C8]">
+                    Save an engineering problem and verified fix as permanent team memory.
+                  </p>
                 </div>
                 <button
-                  onClick={() => setActiveMemory(null)}
-                  className="p-1.5 text-[#A5A0C8] hover:text-white rounded-lg hover:bg-white/10"
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="h-8 w-8 rounded-xl bg-[#1E1938] text-[#A5A0C8] hover:text-white flex items-center justify-center text-xs"
                 >
                   ✕
                 </button>
               </div>
 
-              {/* Problem & Symptoms */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div className="p-4 bg-[#1E1938] border border-[#2D264E] rounded-2xl space-y-1">
-                  <span className="text-[10px] uppercase font-bold text-[#EF4444] tracking-wider block">
-                    Problem Description
-                  </span>
-                  <p className="text-zinc-200">{activeMemory.problem}</p>
+              <form onSubmit={handleCreateMemory} className="space-y-4 text-left">
+                <div>
+                  <label className="text-[11px] font-mono text-[#A5A0C8] block mb-1">
+                    Problem / Memory Title:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    placeholder="e.g. Celery Redis Timeout under High Concurrency"
+                    className="w-full bg-[#0B0914] border border-[#2D264E] focus:border-[#8B5CF6] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none"
+                  />
                 </div>
 
-                <div className="p-4 bg-[#1E1938] border border-[#2D264E] rounded-2xl space-y-1">
-                  <span className="text-[10px] uppercase font-bold text-[#F59E0B] tracking-wider block">
-                    Symptoms & Error Signature
-                  </span>
-                  <p className="text-zinc-200 font-mono text-[11px]">{activeMemory.symptoms}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-mono text-[#A5A0C8] block mb-1">
+                      Architecture Category:
+                    </label>
+                    <select
+                      value={newCategory}
+                      onChange={(e) => setNewCategory(e.target.value)}
+                      className="w-full bg-[#0B0914] border border-[#2D264E] focus:border-[#8B5CF6] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none"
+                    >
+                      <option value="Database">Database & PostgreSQL</option>
+                      <option value="Authentication">Authentication & Security</option>
+                      <option value="Backend">Backend & Concurrency</option>
+                      <option value="Frontend">Frontend & React</option>
+                      <option value="Docker">Docker & Infrastructure</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-mono text-[#A5A0C8] block mb-1">
+                      Affected Services:
+                    </label>
+                    <input
+                      type="text"
+                      value={newServices}
+                      onChange={(e) => setNewServices(e.target.value)}
+                      placeholder="e.g. Core API, PostgreSQL DB"
+                      className="w-full bg-[#0B0914] border border-[#2D264E] focus:border-[#8B5CF6] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none font-mono"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              {/* Root Cause */}
-              <div className="p-4 bg-[#1E1938] border border-[#2D264E] rounded-2xl space-y-1 text-xs">
-                <span className="text-[10px] uppercase font-bold text-[#8B5CF6] tracking-wider block">
-                  Root Cause Analysis
-                </span>
-                <p className="text-zinc-200">{activeMemory.root_cause}</p>
-              </div>
+                <div>
+                  <label className="text-[11px] font-mono text-[#A5A0C8] block mb-1">
+                    Problem Scenario / Root Cause:
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={newProblem}
+                    onChange={(e) => setNewProblem(e.target.value)}
+                    placeholder="Describe what went wrong, symptoms, and the underlying root cause..."
+                    className="w-full bg-[#0B0914] border border-[#2D264E] focus:border-[#8B5CF6] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none"
+                  />
+                </div>
 
-              {/* Working Code Patch */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] uppercase font-bold text-[#22C55E] tracking-wider">
-                    Working Solution & Code Patch
-                  </span>
+                <div>
+                  <label className="text-[11px] font-mono text-[#A5A0C8] block mb-1">
+                    Verified Solution Summary:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newSolution}
+                    onChange={(e) => setNewSolution(e.target.value)}
+                    placeholder="e.g. Set pool_pre_ping=True and increase max_overflow in create_engine"
+                    className="w-full bg-[#0B0914] border border-[#2D264E] focus:border-[#8B5CF6] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-mono text-[#A5A0C8] block mb-1">
+                    Solution Code Snippet / Patch (Optional):
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={newCodePatch}
+                    onChange={(e) => setNewCodePatch(e.target.value)}
+                    placeholder="# Paste the working code snippet..."
+                    className="w-full bg-[#0B0914] border border-[#2D264E] focus:border-[#8B5CF6] rounded-xl p-3 font-mono text-xs text-[#C4B5FD] placeholder-zinc-600 focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-2">
                   <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(activeMemory.code_patch);
-                      alert('Code patch copied to clipboard!');
-                    }}
-                    className="text-xs text-[#C4B5FD] hover:text-white font-bold"
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                    className="px-4 py-2.5 bg-[#1E1938] hover:bg-[#28214B] border border-[#2D264E] text-[#A5A0C8] rounded-xl text-xs font-semibold transition-all"
                   >
-                    Copy Code
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] hover:from-[#7C3AED] hover:to-[#5B21B6] text-white font-bold text-xs rounded-xl shadow-lg shadow-[#8B5CF6]/25 transition-all"
+                  >
+                    Save Memory →
                   </button>
                 </div>
-                <pre className="p-4 bg-[#0B0914] border border-[#2D264E] rounded-2xl font-mono text-zinc-200 overflow-x-auto text-xs">
-                  <code>{activeMemory.code_patch}</code>
-                </pre>
-              </div>
+              </form>
+            </m.div>
+          </div>
+        )}
+      </AnimatePresence>
 
-              {/* Related Services & Memories */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-2">
-                <div className="p-3 bg-[#0B0914] border border-[#2D264E] rounded-2xl space-y-1.5">
-                  <span className="text-[10px] text-[#A5A0C8] font-mono block">Related Services</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {activeMemory.related_services.map((s) => (
-                      <span key={s} className="px-2 py-0.5 bg-[#1E1938] border border-[#2D264E] text-[#C4B5FD] rounded-lg text-[11px]">
-                        {s}
-                      </span>
-                    ))}
-                  </div>
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* MODAL 2: VIEW MEMORY DETAILS                                  */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {activeMemory && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <m.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-[#141224] border border-[#8B5CF6]/50 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 shadow-2xl space-y-6"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-[#2D264E]">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full bg-[#8B5CF6]/20 text-[#C4B5FD] font-bold">
+                    {activeMemory.category}
+                  </span>
+                  <span className="text-xs text-[#22C55E] font-mono">
+                    Reused {activeMemory.times_reused} times
+                  </span>
                 </div>
-
-                <div className="p-3 bg-[#0B0914] border border-[#2D264E] rounded-2xl space-y-1.5">
-                  <span className="text-[10px] text-[#A5A0C8] font-mono block">Related Standards</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {activeMemory.related_memories.map((m) => (
-                      <span key={m} className="px-2 py-0.5 bg-[#1E1938] border border-[#2D264E] text-[#22D3EE] rounded-lg text-[11px]">
-                        {m}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="flex items-center justify-between pt-3 border-t border-[#2D264E] text-xs text-[#A5A0C8]">
-                <span>
-                  Verified by <strong className="text-white">{activeMemory.verified_by}</strong> • Reused {activeMemory.times_reused} times
-                </span>
                 <button
+                  type="button"
                   onClick={() => setActiveMemory(null)}
-                  className="px-4 py-2 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white font-bold text-xs rounded-xl"
+                  className="h-8 w-8 rounded-xl bg-[#1E1938] text-[#A5A0C8] hover:text-white flex items-center justify-center text-xs"
                 >
-                  Close
+                  ✕
                 </button>
+              </div>
+
+              <div className="space-y-4 text-left">
+                <h2 className="text-xl font-bold text-white">{activeMemory.title}</h2>
+
+                <div className="p-4 bg-[#1E1938] border border-[#2D264E] rounded-2xl space-y-2">
+                  <span className="text-[10px] font-mono uppercase text-[#A5A0C8] font-bold block">
+                    Problem & Root Cause:
+                  </span>
+                  <p className="text-xs text-white leading-relaxed">{activeMemory.problem}</p>
+                </div>
+
+                <div className="p-4 bg-[#1E1938] border border-[#22C55E]/30 rounded-2xl space-y-2">
+                  <span className="text-[10px] font-mono uppercase text-[#22C55E] font-bold block">
+                    Verified Solution:
+                  </span>
+                  <p className="text-xs text-white leading-relaxed">{activeMemory.working_solution}</p>
+                </div>
+
+                {activeMemory.code_patch && (
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-mono uppercase text-[#A5A0C8] font-bold block">
+                      Code Patch:
+                    </span>
+                    <pre className="p-4 bg-[#0B0914] border border-[#2D264E] rounded-2xl font-mono text-xs text-[#C4B5FD] overflow-x-auto shadow-inner">
+                      <code>{activeMemory.code_patch}</code>
+                    </pre>
+                  </div>
+                )}
+
+                <div className="pt-2 flex items-center justify-between text-xs font-mono text-[#A5A0C8] border-t border-[#2D264E]">
+                  <span>Verified by: <strong className="text-white">{activeMemory.verified_by}</strong></span>
+                  <span>{activeMemory.date}</span>
+                </div>
               </div>
             </m.div>
           </div>
@@ -483,3 +627,5 @@ export function KnowledgePage() {
     </div>
   );
 }
+
+export default KnowledgePage;

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { m, AnimatePresence } from 'framer-motion';
+import { useAuthStore } from '@stores/authStore';
 
 interface GameChallenge {
   id: string;
@@ -45,7 +46,7 @@ const CHALLENGES: GameChallenge[] = [
     id: 'c1',
     category: 'Database Architecture',
     badge: 'PostgreSQL Standard',
-    title: '🚨 Production Outage: Celery Worker Pool Exhaustion',
+    title: 'Production Outage: Celery Worker Pool Exhaustion',
     scenario: 'Under peak traffic, background workers fail with QueuePool limit of size 10 overflow 10 reached. What is the verified fix according to ADR001?',
     code_snippet: `# Current app/db/session.py
 engine = create_engine(DATABASE_URL, pool_size=10, max_overflow=5)`,
@@ -58,12 +59,12 @@ engine = create_engine(DATABASE_URL, pool_size=10, max_overflow=5)`,
       {
         text: 'Set pool_size=0 to disable connection pooling completely',
         isCorrect: false,
-        explanation: 'Incorrect! Disabling the pool causes connection thrashing and crushes the PostgreSQL server.',
+        explanation: 'Disabling connection pooling creates a new TCP handshake per query and crashes the PostgreSQL cluster under moderate traffic.',
       },
       {
         text: 'Restart PostgreSQL every 10 minutes with a cron job',
         isCorrect: false,
-        explanation: 'Incorrect! This causes periodic service downtime for all active users.',
+        explanation: 'Dangerous antipattern! Scheduled restarts drop active transactions and corrupt uncommitted write operations.',
       },
     ],
     xp: 60,
@@ -71,93 +72,63 @@ engine = create_engine(DATABASE_URL, pool_size=10, max_overflow=5)`,
   },
   {
     id: 'c2',
-    category: 'Authentication Security',
-    badge: 'Security Standard',
-    title: '🔐 Security Defense: Prevent JWT Secret Forgery',
-    scenario: 'An attacker attempts to send a JWT token with alg: "none" to bypass signature checks. How does TeamMemoryOS enforce zero-trust token decoding?',
-    code_snippet: `# Vulnerable decoding:
-payload = jwt.decode(token, verify=False)`,
+    category: 'Security & Auth',
+    badge: 'Zero Trust Auth',
+    title: 'Vulnerability: Unverified JWT Algorithm Substitution',
+    scenario: 'A penetration test revealed that attackers could forge JWTs if the verification algorithm is unspecified. What is our team security standard?',
+    code_snippet: `# Vulnerable auth decoding
+jwt.decode(token, SECRET_KEY)`,
     options: [
       {
-        text: 'Enforce explicit algorithms=["HS256"] and verify signature with SECRET_KEY',
+        text: 'Explicitly enforce algorithms=["HS256"] and set leeway=10 in decode call',
         isCorrect: true,
-        explanation: 'Correct! Specifying algorithms=["HS256"] blocks the infamous "none" algorithm exploit and validates HMAC-SHA256 integrity.',
+        explanation: 'Mandatory per Security Standard! Preventing algorithm switching prevents none-algorithm bypass exploits.',
       },
       {
-        text: 'Store the secret key in the frontend client localStorage',
+        text: 'Decode the token header with base64 without checking signature',
         isCorrect: false,
-        explanation: 'Dangerous! Never expose secret keys to the browser client.',
+        explanation: 'This completely skips cryptography and trusts untrusted user input directly.',
       },
       {
-        text: 'Use base64 decoding without cryptographic signatures',
+        text: 'Send the secret key in the request headers from client frontend',
         isCorrect: false,
-        explanation: 'Incorrect! Base64 is only encoding, not encryption or signature verification.',
+        explanation: 'Exposing SECRET_KEY to the client allows any user to forge arbitrary admin credentials.',
       },
     ],
     xp: 75,
-    adr_reference: 'ADR002: Password & JWT Security Policy',
+    adr_reference: 'ADR002: JWT Zero-Trust Signature Protocol',
   },
   {
     id: 'c3',
     category: 'Distributed Systems',
     badge: 'Concurrency Standard',
-    title: '⚡ Concurrency Race: Stop Double Invoice Payments',
-    scenario: 'Customers clicking "Pay Now" twice simultaneously generate duplicate charges due to webhook race conditions. Which pattern eliminates this?',
-    code_snippet: `# Vulnerable handler:
-if not is_paid(invoice_id):
-    charge_customer(invoice_id)`,
+    title: 'Double-Spending Bug on Concurrent Stripe Webhooks',
+    scenario: 'Two Stripe invoice webhooks arrived in the same millisecond, triggering duplicate database credit top-ups. How do we prevent this race condition?',
+    code_snippet: `# Current handler without distributed locking
+async def handle_stripe_webhook(event):
+    credit_user(event.user_id, event.amount)`,
     options: [
       {
-        text: 'Acquire Redis atomic distributed lock: redis_client.lock("invoice:{id}", timeout=15)',
+        text: 'Acquire a Redis distributed Redlock on f"billing:{user_id}" with 10s TTL',
         isCorrect: true,
-        explanation: 'Correct! Atomic distributed locking ensures only one worker thread processes a given invoice ID at a time.',
+        explanation: 'Redlock guarantees mutual exclusion across all async uvicorn worker instances simultaneously.',
       },
       {
-        text: 'Add a time.sleep(2) delay before charging the customer',
+        text: 'Add a 3 second time.sleep() delay before processing',
         isCorrect: false,
-        explanation: 'Incorrect! Sleep delays exacerbate race conditions and block the event loop.',
+        explanation: 'Arbitrary sleep creates latency and does not eliminate the race condition under load.',
       },
       {
-        text: 'Ignore duplicate webhooks and process all requests anyway',
+        text: 'Ignore webhook events if another webhook arrived in the last 1 second',
         isCorrect: false,
-        explanation: 'Incorrect! This charges the customer multiple times.',
+        explanation: 'Dropping real webhook payments causes customer balance desynchronization.',
       },
     ],
-    xp: 70,
-    adr_reference: 'ADR003: Redis Redlock Concurrency Standard',
+    xp: 85,
+    adr_reference: 'ADR003: Redis Redlock Mutual Exclusion',
   },
   {
     id: 'c4',
-    category: 'DevOps & Containers',
-    badge: 'Docker Standard',
-    title: '🐳 Container Defense: Protect Environment Secrets',
-    scenario: 'A developer accidentally adds database credentials into a Dockerfile ENV directive. Why is this a severe security violation?',
-    code_snippet: `# Insecure Dockerfile
-ENV DATABASE_PASSWORD="prod_secret_password"`,
-    options: [
-      {
-        text: 'Docker layer history exposes the secret to anyone who pulls the image. Pass via env_file in .gitignore.',
-        isCorrect: true,
-        explanation: 'Correct! Docker image layers are immutable and easily inspected with docker history. Secrets must be injected at runtime.',
-      },
-      {
-        text: 'Docker automatically encrypts all ENV strings in public registries',
-        isCorrect: false,
-        explanation: 'False! Docker images store ENV variables in plain text metadata.',
-      },
-      {
-        text: 'It slows down Python execution speed',
-        isCorrect: false,
-        explanation: 'Incorrect! This is a severe credential leak vulnerability, not a performance issue.',
-      },
-    ],
-    xp: 65,
-    adr_reference: 'POL-03: Zero Secrets in Source / Image Artifacts',
-  },
-];
-
-const INITIAL_PEER_TIPS: PeerTip[] = [
-  {
     id: 'tip-1',
     author: 'Sarah Connor',
     role: 'Tech Lead',
@@ -212,6 +183,20 @@ finally:
 
 export function IncidentPRCenterPage() {
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+
+  // Active Organization Metadata
+  const activeOrg = useMemo(() => {
+    try {
+      const stored = localStorage.getItem('teammemory_active_organization');
+      if (stored) return JSON.parse(stored);
+    } catch (e) {}
+    return {
+      name: 'cultuss',
+      adminName: user?.full_name || 'Jay Patel',
+      invitedEmails: ['juli@cultuss.ai', 'janvi@cultuss.ai', 'jeel@cultuss.ai', 'joy@cultuss.ai'],
+    };
+  }, [user]);
 
   // Tab State: Quests vs Peer Tips
   const [activeTab, setActiveTab] = useState<'quests' | 'tips'>('quests');
@@ -227,57 +212,101 @@ export function IncidentPRCenterPage() {
   const [showCelebration, setShowCelebration] = useState(false);
 
   // Peer Tips State
-  const [peerTips, setPeerTips] = useState<PeerTip[]>(INITIAL_PEER_TIPS);
+  const [peerTips, setPeerTips] = useState<PeerTip[]>([
+    {
+      id: 'tip-1',
+      author: activeOrg.adminName || 'Jay Patel',
+      role: 'Workspace Owner / Lead',
+      avatar: 'JP',
+      tag: 'PostgreSQL Gotcha',
+      title: 'RDS Idle Connection Timeout & Pool Pre-Ping',
+      tip: 'AWS RDS terminates idle TCP connections after 300s silently. If your SQLAlchemy engine does not have pool_pre_ping=True, the next query will throw an OperationalError. Always set pool_pre_ping=True in create_engine!',
+      code: 'engine = create_engine(DB_URL, pool_pre_ping=True, pool_recycle=300)',
+      likes: 31,
+      time: '2h ago',
+    },
+    {
+      id: 'tip-2',
+      author: Array.isArray(activeOrg.invitedEmails) && activeOrg.invitedEmails[0] ? activeOrg.invitedEmails[0].split('@')[0].toUpperCase() : 'Senior Engineer',
+      role: 'Senior Backend Engineer',
+      avatar: 'SE',
+      tag: 'Docker Security',
+      title: 'Never use ENV for secrets in Dockerfile',
+      tip: 'Any variable declared as ENV in a Dockerfile is baked into the image metadata permanently and readable with docker inspect. Use runtime environment variables (.env with docker-compose) or Docker BuildKit secret mounts instead.',
+      code: '# Correct: env_file: .env (added to .gitignore)',
+      likes: 24,
+      time: '5h ago',
+    },
+    {
+      id: 'tip-3',
+      author: Array.isArray(activeOrg.invitedEmails) && activeOrg.invitedEmails[1] ? activeOrg.invitedEmails[1].split('@')[0].toUpperCase() : 'Security Lead',
+      role: 'Security Auditor',
+      avatar: 'SA',
+      tag: 'Concurrency Hack',
+      title: 'Redis Lock try/finally Pattern',
+      tip: 'Whenever acquiring a distributed Redis lock for webhook processing, ALWAYS wrap worker logic in a try...finally block to guarantee lock release. If your worker crashes unhandled, other threads will deadlock until the TTL expires!',
+      code: `lock = redis.lock("inv:123", timeout=15)\ntry:\n    process_payment()\nfinally:\n    lock.release()`,
+      likes: 15,
+      time: 'Yesterday',
+    },
+  ]);
   const [showTipForm, setShowTipForm] = useState(false);
   const [newTipTitle, setNewTipTitle] = useState('');
   const [newTipText, setNewTipText] = useState('');
   const [newTipTag, setNewTipTag] = useState('Gotcha & Fix');
   const [newTipCode, setNewTipCode] = useState('');
 
-  // Live Team Leaderboard
-  const [leaderboard] = useState<TeamRank[]>([
-    {
-      name: 'Sarah Connor',
-      role: 'Tech Lead',
-      avatar: '🎯',
-      level: 5,
-      xp: 1240,
-      streak: 8,
-      solved: 38,
-      badge: '🧠 Memory Architect',
-    },
-    {
-      name: 'Alex Vance',
-      role: 'Workspace Owner',
-      avatar: '👑',
-      level: 4,
-      xp: 920,
-      streak: 5,
-      solved: 28,
-      badge: '🛡️ Security Sentinel',
-    },
-    {
-      name: 'Devin Thorne (You)',
-      role: 'Developer',
-      avatar: '💻',
-      level: 3,
-      xp: userXp,
-      streak: isQuestComplete ? streakDays + 1 : streakDays,
-      solved: 22 + completedChallenges.length,
-      badge: '⚡ Concurrency Guru',
-      isCurrentUser: true,
-    },
-    {
-      name: 'Morgan Chase',
-      role: 'Security Auditor',
-      avatar: '🛡️',
-      level: 3,
-      xp: 580,
-      streak: 3,
-      solved: 16,
-      badge: '🔍 Policy Guardian',
-    },
-  ]);
+  // Live Team Leaderboard derived dynamically from Active Organization
+  const leaderboard = useMemo<TeamRank[]>(() => {
+    const currentUserName = user?.full_name || activeOrg.adminName || 'Jay Patel';
+    const ranks: TeamRank[] = [
+      {
+        name: `${currentUserName} (You)`,
+        role: user?.role === 'owner' ? 'Workspace Owner / Lead' : 'Senior Engineer',
+        avatar: currentUserName.replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase() || 'ME',
+        level: 3,
+        xp: userXp,
+        streak: isQuestComplete ? streakDays + 1 : streakDays,
+        solved: 22 + completedChallenges.length,
+        badge: 'Architecture Sentinel',
+        isCurrentUser: true,
+      },
+    ];
+
+    if (Array.isArray(activeOrg.members) && activeOrg.members.length > 0) {
+      activeOrg.members.forEach((m: any, idx: number) => {
+        if (m.name !== currentUserName && !m.name.includes(currentUserName)) {
+          ranks.push({
+            name: m.name,
+            role: m.role || 'Software Engineer',
+            avatar: m.name.replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase() || 'EN',
+            level: 3 + (idx % 2),
+            xp: 540 + idx * 120,
+            streak: 3 + idx,
+            solved: 15 + idx * 4,
+            badge: idx === 0 ? 'Memory Architect' : 'Policy Guardian',
+          });
+        }
+      });
+    } else if (Array.isArray(activeOrg.invitedEmails)) {
+      activeOrg.invitedEmails.forEach((email: string, idx: number) => {
+        const uname = email.split('@')[0];
+        const formatted = uname.charAt(0).toUpperCase() + uname.slice(1);
+        ranks.push({
+          name: formatted,
+          role: idx === 0 ? 'Senior Backend Engineer' : 'Fullstack Engineer',
+          avatar: formatted.slice(0, 2).toUpperCase(),
+          level: 3 + (idx % 2),
+          xp: 540 + idx * 120,
+          streak: 3 + idx,
+          solved: 15 + idx * 4,
+          badge: idx === 0 ? 'Memory Architect' : 'Policy Guardian',
+        });
+      });
+    }
+
+    return ranks.sort((a, b) => b.xp - a.xp);
+  }, [user, activeOrg, userXp, streakDays, completedChallenges, isQuestComplete]);
 
   const currentChallenge = CHALLENGES[currentChallengeIdx];
 
@@ -371,11 +400,11 @@ export function IncidentPRCenterPage() {
               Engineering Arena
             </span>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#22C55E]/15 text-[#22C55E] border border-[#22C55E]/30 font-medium">
-              Live Team Play
+              Live Arena
             </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
-            <span>🎮</span> Daily Quests & Peer Wisdom
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+            Daily Quests & Peer Wisdom
           </h1>
           <p className="text-xs text-[#A5A0C8] mt-0.5">
             Sharpen engineering instincts with daily challenges and explore real pro-tips shared by your teammates.
@@ -392,7 +421,7 @@ export function IncidentPRCenterPage() {
                 : 'text-[#A5A0C8] hover:text-white'
             }`}
           >
-            <span>🧠 Daily Challenges</span>
+            <span>Daily Challenges</span>
             <span className="text-[10px] font-mono bg-white/20 px-1.5 py-0.2 rounded-full">
               {completedChallenges.length}/4
             </span>
@@ -406,7 +435,7 @@ export function IncidentPRCenterPage() {
                 : 'text-[#A5A0C8] hover:text-white'
             }`}
           >
-            <span>💡 Peer Pro-Tips</span>
+            <span>Peer Pro-Tips</span>
             <span className="text-[10px] font-mono bg-white/20 px-1.5 py-0.2 rounded-full">
               {peerTips.length}
             </span>
@@ -417,31 +446,35 @@ export function IncidentPRCenterPage() {
       {/* Gamification Bar: Level, XP, Streak */}
       <div className="bg-[#141224] border border-[#2D264E] rounded-3xl p-5 sm:p-6 shadow-xl flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[#8B5CF6] to-[#6D28D9] flex items-center justify-center text-xl font-bold shadow-lg shadow-[#8B5CF6]/30">
-            L3
+          <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-[#8B5CF6] to-[#6D28D9] flex items-center justify-center text-xs font-bold font-mono text-white shadow-lg shadow-[#8B5CF6]/30">
+            {user?.full_name ? user.full_name.replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase() : 'ME'}
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-white">Devin Thorne</span>
+              <span className="text-sm font-bold text-white">
+                {user?.full_name || activeOrg.adminName || 'Engineer'}
+              </span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#22C55E]/15 text-[#22C55E] border border-[#22C55E]/30 font-bold">
                 {userXp} XP
               </span>
             </div>
-            <p className="text-xs text-[#A5A0C8]">Level 3 SRE Engineer • 135 XP to Level 4</p>
+            <p className="text-xs text-[#A5A0C8]">
+              {user?.role === 'owner' ? 'Workspace Owner / Lead' : 'Level 3 SRE Engineer'} • 135 XP to Level 4
+            </p>
           </div>
         </div>
 
         <div className="flex items-center gap-4">
           <div className="text-right hidden sm:block">
-            <span className="text-[10px] font-mono text-[#A5A0C8] block">Solving Streak</span>
-            <span className="text-sm font-bold text-amber-400 font-mono flex items-center gap-1 justify-end">
-              <span>🔥</span> {streakDays} Days
+            <span className="text-[10px] font-mono text-[#A5A0C8] block uppercase">Streak</span>
+            <span className="text-sm font-bold text-amber-400 font-mono">
+              {streakDays} Days
             </span>
           </div>
           <div className="text-right">
-            <span className="text-[10px] font-mono text-[#A5A0C8] block">Today's Progress</span>
+            <span className="text-[10px] font-mono text-[#A5A0C8] block uppercase">Progress</span>
             <span className="text-sm font-bold text-[#22D3EE] font-mono">
-              {isQuestComplete ? '4 / 4 Complete ✓' : `${completedChallenges.length} / 4 Challenges`}
+              {isQuestComplete ? '4 / 4 Complete' : `${completedChallenges.length} / 4 Challenges`}
             </span>
           </div>
         </div>
@@ -467,57 +500,68 @@ export function IncidentPRCenterPage() {
                     <span className="text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full bg-[#8B5CF6]/20 text-[#C4B5FD] border border-[#8B5CF6]/30 font-bold">
                       Challenge {currentChallengeIdx + 1} of {CHALLENGES.length}
                     </span>
-                    <span className="text-[10px] font-mono text-[#A5A0C8]">{currentChallenge.badge}</span>
+                    <span className="text-xs font-mono text-[#A5A0C8]">
+                      {currentChallenge.badge}
+                    </span>
                   </div>
-                  <span className="text-xs font-mono font-bold text-[#22C55E] bg-[#22C55E]/15 border border-[#22C55E]/30 px-3 py-0.5 rounded-full">
+                  <span className="text-xs font-mono font-bold text-[#22C55E] bg-[#22C55E]/10 border border-[#22C55E]/20 px-2.5 py-0.5 rounded-full">
                     +{currentChallenge.xp} XP
                   </span>
                 </div>
 
-                {/* Title & Scenario */}
-                <div className="space-y-2">
-                  <h2 className="text-lg font-bold text-white tracking-tight">{currentChallenge.title}</h2>
-                  <p className="text-xs text-[#C4BFDE] leading-relaxed">{currentChallenge.scenario}</p>
+                {/* Question Details */}
+                <div className="space-y-3 text-left">
+                  <h2 className="text-lg sm:text-xl font-bold text-white leading-snug">
+                    {currentChallenge.title}
+                  </h2>
+                  <p className="text-xs sm:text-sm text-[#A5A0C8] leading-relaxed">
+                    {currentChallenge.scenario}
+                  </p>
+
+                  {/* Code Snippet */}
+                  {currentChallenge.code_snippet && (
+                    <div className="bg-[#0B0914] border border-[#2D264E] rounded-2xl p-4 font-mono text-xs text-[#C4B5FD] overflow-x-auto shadow-inner">
+                      <pre>{currentChallenge.code_snippet}</pre>
+                    </div>
+                  )}
                 </div>
 
-                {/* Code Snippet */}
-                <pre className="p-4 bg-[#0B0914] border border-[#2D264E] rounded-2xl font-mono text-xs text-zinc-300 overflow-x-auto">
-                  <code>{currentChallenge.code_snippet}</code>
-                </pre>
-
-                {/* Interactive Options */}
-                <div className="space-y-3">
-                  <span className="text-[10px] uppercase font-bold text-[#A5A0C8] tracking-wider block">
+                {/* Multiple Choice Options */}
+                <div className="space-y-3 pt-2 text-left">
+                  <span className="text-[10px] uppercase font-mono text-[#A5A0C8] font-bold block">
                     Select the Verified Fix:
                   </span>
                   {currentChallenge.options.map((opt, idx) => {
                     const isSelected = selectedOption === idx;
-                    let borderStyle = 'border-[#2D264E] bg-[#1E1938] hover:border-[#8B5CF6]/50';
+                    let optionStyle = 'bg-[#1E1938] border-[#2D264E] hover:border-[#8B5CF6]/60 text-white';
 
                     if (hasSubmitted) {
                       if (opt.isCorrect) {
-                        borderStyle = 'border-[#22C55E] bg-emerald-950/40 text-emerald-300 font-bold';
+                        optionStyle = 'bg-[#22C55E]/15 border-[#22C55E] text-white shadow-lg shadow-[#22C55E]/10';
                       } else if (isSelected && !opt.isCorrect) {
-                        borderStyle = 'border-[#EF4444] bg-red-950/40 text-red-300';
+                        optionStyle = 'bg-rose-500/15 border-rose-500 text-white';
+                      } else {
+                        optionStyle = 'bg-[#141224] border-[#2D264E] text-[#A5A0C8] opacity-50';
                       }
                     } else if (isSelected) {
-                      borderStyle = 'border-[#8B5CF6] bg-[#8B5CF6]/20 text-white font-bold shadow-md shadow-[#8B5CF6]/20';
+                      optionStyle = 'bg-[#8B5CF6]/20 border-[#8B5CF6] text-white ring-2 ring-[#8B5CF6]/30';
                     }
 
                     return (
                       <button
                         key={idx}
+                        type="button"
                         onClick={() => handleSelectOption(idx)}
                         disabled={hasSubmitted}
-                        className={`w-full p-4 rounded-2xl border text-left text-xs transition-all flex items-start gap-3 ${borderStyle}`}
+                        className={`w-full p-4 rounded-2xl border transition-all text-left text-xs sm:text-sm flex items-start gap-3 ${optionStyle}`}
                       >
-                        <span className="h-5 w-5 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-mono font-bold flex-shrink-0 mt-0.5">
-                          {String.fromCharCode(65 + idx)}
+                        <span className="h-5 w-5 rounded-full border border-current flex items-center justify-center text-xs flex-shrink-0 mt-0.5 font-mono">
+                          {isSelected ? '●' : '○'}
                         </span>
                         <div className="space-y-1">
-                          <p>{opt.text}</p>
-                          {hasSubmitted && (
-                            <p className="text-[11px] font-normal text-zinc-300 pt-1 border-t border-white/10">
+                          <p className="font-medium leading-relaxed">{opt.text}</p>
+                          {hasSubmitted && (opt.isCorrect || isSelected) && (
+                            <p className={`text-xs mt-1 font-mono ${opt.isCorrect ? 'text-[#22C55E]' : 'text-rose-400'}`}>
                               {opt.explanation}
                             </p>
                           )}
@@ -527,24 +571,26 @@ export function IncidentPRCenterPage() {
                   })}
                 </div>
 
-                {/* Action Buttons */}
-                <div className="pt-2 flex items-center justify-between gap-3 border-t border-[#2D264E]">
-                  <span className="text-[11px] text-[#A5A0C8] font-mono">
-                    Grounded in <strong className="text-white">{currentChallenge.adr_reference}</strong>
+                {/* Submit & Next Challenge Action Controls */}
+                <div className="pt-4 border-t border-[#2D264E] flex items-center justify-between">
+                  <span className="text-[10px] font-mono text-[#A5A0C8]">
+                    Grounded in: <strong className="text-[#C4B5FD]">{currentChallenge.adr_reference}</strong>
                   </span>
 
                   {!hasSubmitted ? (
                     <button
+                      type="button"
                       onClick={handleSubmitAnswer}
                       disabled={selectedOption === null}
-                      className="px-6 py-3 bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] hover:from-[#7C3AED] hover:to-[#5B21B6] disabled:opacity-40 text-white font-bold text-xs rounded-xl shadow-lg shadow-[#8B5CF6]/25 transition-all"
+                      className="px-6 py-2.5 bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] hover:from-[#7C3AED] hover:to-[#5B21B6] disabled:opacity-40 text-white font-bold text-xs rounded-xl shadow-lg shadow-[#8B5CF6]/25 transition-all"
                     >
                       Submit Fix →
                     </button>
                   ) : (
                     <button
+                      type="button"
                       onClick={handleNextChallenge}
-                      className="px-6 py-3 bg-gradient-to-r from-[#22C55E] to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-[#22C55E]/25 transition-all"
+                      className="px-6 py-2.5 bg-[#22C55E] hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-[#22C55E]/25 transition-all animate-bounce"
                     >
                       {currentChallengeIdx + 1 < CHALLENGES.length ? 'Next Challenge →' : 'Complete Quest 🏆'}
                     </button>
@@ -552,41 +598,34 @@ export function IncidentPRCenterPage() {
                 </div>
               </m.div>
             ) : (
-              /* Quest Completion Screen */
+              /* Victory Screen */
               <m.div
-                initial={{ opacity: 0, scale: 0.96 }}
+                initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="bg-[#141224] border border-[#22C55E]/50 rounded-3xl p-8 shadow-2xl space-y-6 text-center"
+                className="bg-[#141224] border border-[#22C55E]/50 rounded-3xl p-8 sm:p-10 shadow-2xl text-center space-y-6"
               >
-                <div className="h-16 w-16 mx-auto rounded-3xl bg-[#22C55E]/20 border border-[#22C55E]/40 flex items-center justify-center text-4xl shadow-xl shadow-[#22C55E]/20 animate-bounce">
-                  🏆
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#22C55E]/15 border border-[#22C55E]/30 rounded-full text-xs font-mono text-[#22C55E] font-bold">
+                  <span>✓ Daily Quest Complete</span>
                 </div>
 
-                <div className="space-y-1.5">
-                  <span className="text-xs font-mono uppercase text-[#22C55E] font-bold tracking-wider">
-                    Daily Quest Completed
-                  </span>
-                  <h2 className="text-2xl font-black text-white">
-                    Outstanding Work, Devin!
+                <div className="space-y-2">
+                  <h2 className="text-2xl sm:text-3xl font-black text-white">
+                    Engineering Instincts Mastered!
                   </h2>
-                  <p className="text-xs text-[#A5A0C8] max-w-md mx-auto">
-                    You successfully solved all 4 production engineering challenges and grounded your solutions in verified organizational memory.
+                  <p className="text-xs sm:text-sm text-[#A5A0C8] max-w-md mx-auto">
+                    You resolved all 4 critical architecture scenarios grounded in verified team memory guidelines.
                   </p>
                 </div>
 
-                {/* Reward Highlights */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-xl mx-auto text-center">
-                  <div className="p-4 bg-[#1E1938] border border-[#2D264E] rounded-2xl">
-                    <span className="text-[10px] text-[#A5A0C8] font-mono block">XP Earned Today</span>
-                    <span className="text-xl font-bold text-[#22C55E] font-mono">+270 XP</span>
+                {/* Score & Streak Rewards */}
+                <div className="grid grid-cols-2 gap-4 max-w-md mx-auto text-left font-mono text-xs">
+                  <div className="p-4 bg-[#0B0914] border border-[#2D264E] rounded-2xl space-y-1">
+                    <span className="text-[10px] text-[#A5A0C8] block">Total XP Earned</span>
+                    <span className="text-xl font-extrabold text-[#22C55E]">+270 XP</span>
                   </div>
-                  <div className="p-4 bg-[#1E1938] border border-[#2D264E] rounded-2xl">
-                    <span className="text-[10px] text-[#A5A0C8] font-mono block">Active Streak</span>
-                    <span className="text-xl font-bold text-amber-400 font-mono">🔥 {streakDays} Days</span>
-                  </div>
-                  <div className="p-4 bg-[#1E1938] border border-[#2D264E] rounded-2xl">
-                    <span className="text-[10px] text-[#A5A0C8] font-mono block">Leaderboard Rank</span>
-                    <span className="text-xl font-bold text-[#C4B5FD] font-mono">#3 in Team</span>
+                  <div className="p-4 bg-[#0B0914] border border-[#2D264E] rounded-2xl space-y-1">
+                    <span className="text-[10px] text-[#A5A0C8] block">Solving Streak</span>
+                    <span className="text-xl font-extrabold text-amber-400">{streakDays} Days</span>
                   </div>
                 </div>
 
@@ -612,16 +651,18 @@ export function IncidentPRCenterPage() {
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
                   <button
+                    type="button"
                     onClick={() => navigate('/knowledge')}
                     className="w-full sm:w-auto px-6 py-3.5 bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] hover:from-[#7C3AED] hover:to-[#5B21B6] text-white font-bold text-xs rounded-xl shadow-lg shadow-[#8B5CF6]/25 transition-all"
                   >
-                    📖 Explore Memory Book →
+                    Explore Memory Book →
                   </button>
                   <button
+                    type="button"
                     onClick={handleRestartReview}
                     className="w-full sm:w-auto px-6 py-3.5 bg-[#1E1938] hover:bg-[#2D264F] border border-[#2D264E] text-[#C4B5FD] font-semibold text-xs rounded-xl transition-all"
                   >
-                    🔄 Review Quest Challenges
+                    Review Quest Challenges
                   </button>
                 </div>
               </m.div>
@@ -633,18 +674,18 @@ export function IncidentPRCenterPage() {
             {/* Live Leaderboard */}
             <div className="bg-[#141224] border border-[#2D264E] rounded-3xl p-6 shadow-xl space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-[#2D264E]">
-                <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                  <span>🏆</span> Team Brain Leaderboard
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                  Team Leaderboard
                 </h3>
                 <span className="text-[10px] font-mono text-[#22C55E]">Live Sync</span>
               </div>
 
               <div className="space-y-3">
-                {leaderboard.map((user, idx) => (
+                {leaderboard.map((item, idx) => (
                   <div
-                    key={user.name}
+                    key={item.name}
                     className={`p-3.5 rounded-2xl border transition-all ${
-                      user.isCurrentUser
+                      item.isCurrentUser
                         ? 'bg-[#8B5CF6]/15 border-[#8B5CF6]/50 shadow-md shadow-[#8B5CF6]/15'
                         : 'bg-[#1E1938] border-[#2D264E]'
                     }`}
@@ -652,20 +693,22 @@ export function IncidentPRCenterPage() {
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-bold font-mono text-[#A5A0C8]">#{idx + 1}</span>
-                        <span className="text-lg">{user.avatar}</span>
+                        <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-[#8B5CF6] to-[#6D28D9] text-white flex items-center justify-center text-[10px] font-bold font-mono">
+                          {item.avatar}
+                        </div>
                         <div>
                           <p className="text-xs font-bold text-white flex items-center gap-1.5">
-                            {user.name}
-                            {user.isCurrentUser && (
+                            {item.name}
+                            {item.isCurrentUser && (
                               <span className="text-[9px] font-mono bg-[#8B5CF6] text-white px-1.5 rounded-full">YOU</span>
                             )}
                           </p>
-                          <p className="text-[10px] text-[#A5A0C8] font-mono">{user.badge}</p>
+                          <p className="text-[10px] text-[#A5A0C8] font-mono">{item.badge}</p>
                         </div>
                       </div>
                       <div className="text-right font-mono">
-                        <span className="text-xs font-bold text-[#22C55E] block">{user.xp} XP</span>
-                        <span className="text-[10px] text-amber-400">🔥 {user.streak}d</span>
+                        <span className="text-xs font-bold text-[#22C55E] block">{item.xp} XP</span>
+                        <span className="text-[10px] text-amber-400">Streak {item.streak}d</span>
                       </div>
                     </div>
                   </div>

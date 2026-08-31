@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { UtilityIcons } from '@config/icons';
+import { useAuthStore } from '@stores/authStore';
 
 interface ChatMessage {
   id: string;
@@ -21,6 +22,7 @@ const DEFAULT_WELCOME: ChatMessage = {
 
 export function ChatPage() {
   const [searchParams] = useSearchParams();
+  const user = useAuthStore((s) => s.user);
   const initialQuery = searchParams.get('q');
 
   // 1. Persistent Chat History in localStorage
@@ -136,7 +138,7 @@ export function ChatPage() {
         root_cause: 'Extracted directly from AI conversation session.',
         working_solution: 'Applied verified code patch.',
         code_patch: memoryCode,
-        verified_by: 'You (AI Assistant)',
+        verified_by: user?.full_name || 'You (AI Assistant)',
         avatar: '✨',
         times_reused: 1,
         date: 'Just now',

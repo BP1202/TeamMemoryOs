@@ -1,15 +1,18 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '@stores/authStore';
+import { useUIStore } from '@stores/uiStore';
 
 export function LoginPage() {
+  const [searchParams] = useSearchParams();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const setAuth = useAuthStore((s) => s.setAuth);
   const user = useAuthStore((s) => s.user);
+  const setCurrentWorkspace = useUIStore((s) => s.setCurrentWorkspace);
   const navigate = useNavigate();
 
-  // Mode: 'signin' | 'register_org' | 'demo'
-  const [authMode, setAuthMode] = useState<'signin' | 'register_org' | 'demo'>('signin');
+  // Mode: 'signin' | 'register_org' | 'accept_invite'
+  const [authMode, setAuthMode] = useState<'signin' | 'register_org' | 'accept_invite'>('signin');
 
   // Sign In Form State
   const [email, setEmail] = useState('devin@teammemory.com');
@@ -18,17 +21,43 @@ export function LoginPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Register Org Form State
-  const [orgName, setOrgName] = useState('SunBots Technologies');
-  const [adminName, setAdminName] = useState('Sarah Connor');
-  const [adminEmail, setAdminEmail] = useState('sarah@sunbots.ai');
+  const [orgName, setOrgName] = useState('cultuss');
+  const [adminName, setAdminName] = useState('Jay Patel');
+  const [adminEmail, setAdminEmail] = useState('jay@admin.in');
   const [orgPassword, setOrgPassword] = useState('securepass123');
   const [invitedEmails, setInvitedEmails] = useState<string[]>([
-    'devin@sunbots.ai',
-    'alex@sunbots.ai',
-    'morgan@sunbots.ai',
+    'juli@cultuss.ai',
+    'janvi@cultuss.ai',
+    'jeel@cultuss.ai',
+    'joy@cultuss.ai',
   ]);
   const [newEmailInput, setNewEmailInput] = useState('');
-  const [techStack, setTechStack] = useState<string[]>(['FastAPI', 'PostgreSQL', 'pgvector', 'Docker']);
+  const [techStack, setTechStack] = useState<string[]>([
+    'FastAPI',
+    'PostgreSQL',
+    'pgvector',
+    'Docker',
+    'React',
+    'Python',
+  ]);
+  const [customTechInput, setCustomTechInput] = useState('');
+
+  // Invited Teammate Onboarding Form State
+  const [inviteOrgName, setInviteOrgName] = useState('cultuss');
+  const [inviteFullName, setInviteFullName] = useState('Juli Sharma');
+  const [inviteEmail, setInviteEmail] = useState('juli@cultuss.ai');
+  const [invitePassword, setInvitePassword] = useState('teammatepass123');
+  const [inviteRole, setInviteRole] = useState<'Developer' | 'Tech Lead' | 'Security Auditor' | 'DevOps / SRE'>('Developer');
+
+  useEffect(() => {
+    const inviteParam = searchParams.get('invite');
+    const emailParam = searchParams.get('email');
+    if (inviteParam || emailParam) {
+      setAuthMode('accept_invite');
+      if (inviteParam) setInviteOrgName(inviteParam);
+      if (emailParam) setInviteEmail(emailParam);
+    }
+  }, [searchParams]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,16 +85,18 @@ export function LoginPage() {
           ? 'Sarah Connor'
           : email.includes('alex')
           ? 'Alex Vance'
+          : email.includes('jay')
+          ? 'Jay Patel'
           : 'Devin Thorne',
-        role: email.includes('alex') ? 'owner' : email.includes('sarah') ? 'lead' : 'developer',
-        organization_id: 'org-sunbots-001',
+        role: email.includes('alex') || email.includes('jay') ? 'owner' : email.includes('sarah') ? 'lead' : 'developer',
+        organization_id: 'org-active-001',
         is_active: true,
       };
 
+      setCurrentWorkspace(orgName || 'SunBots Technologies');
       setAuth(data.access_token || 'active-token', authenticatedUser as any);
       navigate('/', { replace: true });
     } catch (err: any) {
-      // Fallback local auth for instant testing
       const authenticatedUser = {
         id: 'usr-live-001',
         email: email,
@@ -73,11 +104,14 @@ export function LoginPage() {
           ? 'Sarah Connor'
           : email.includes('alex')
           ? 'Alex Vance'
+          : email.includes('jay')
+          ? 'Jay Patel'
           : 'Devin Thorne',
-        role: email.includes('alex') ? 'owner' : email.includes('sarah') ? 'lead' : 'developer',
-        organization_id: 'org-sunbots-001',
+        role: email.includes('alex') || email.includes('jay') ? 'owner' : email.includes('sarah') ? 'lead' : 'developer',
+        organization_id: 'org-active-001',
         is_active: true,
       };
+      setCurrentWorkspace(orgName || 'SunBots Technologies');
       setAuth('active-token', authenticatedUser as any);
       navigate('/', { replace: true });
     } finally {
@@ -91,6 +125,32 @@ export function LoginPage() {
 
     setIsLoading(true);
     setErrorMsg(null);
+
+    const activeOrgData = {
+      name: orgName,
+      adminName: adminName,
+      adminEmail: adminEmail,
+      invitedEmails: invitedEmails,
+      techStack: techStack,
+      members: [
+        {
+          name: `${adminName} (Owner)`,
+          email: adminEmail,
+          role: 'Workspace Owner / Admin',
+          avatar: '👑',
+          status: 'Active Now',
+        },
+        ...invitedEmails.map((em, idx) => ({
+          name: em.split('@')[0].charAt(0).toUpperCase() + em.split('@')[0].slice(1),
+          email: em,
+          role: 'Software Engineer',
+          avatar: idx === 0 ? '💻' : idx === 1 ? '🎯' : idx === 2 ? '⚡' : '🛡️',
+          status: '⏳ Pending Onboarding',
+        })),
+      ],
+    };
+    localStorage.setItem('teammemory_active_organization', JSON.stringify(activeOrgData));
+    setCurrentWorkspace(orgName);
 
     try {
       const res = await fetch('http://localhost:8000/api/v1/auth/register-org', {
@@ -125,6 +185,61 @@ export function LoginPage() {
     }
   };
 
+  const handleAcceptInvitation = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteFullName.trim() || !inviteEmail.trim() || !invitePassword.trim()) return;
+
+    setIsLoading(true);
+
+    // Update active organization member list
+    try {
+      const stored = localStorage.getItem('teammemory_active_organization');
+      const org = stored ? JSON.parse(stored) : { name: inviteOrgName, members: [] };
+
+      const existingMembers = Array.isArray(org.members) ? org.members : [];
+      const updatedMembers = existingMembers.map((m: any) =>
+        m.email === inviteEmail
+          ? {
+              ...m,
+              name: inviteFullName,
+              role: inviteRole,
+              status: 'Active Now',
+            }
+          : m
+      );
+
+      // If member wasn't in list, append
+      if (!updatedMembers.some((m: any) => m.email === inviteEmail)) {
+        updatedMembers.push({
+          name: inviteFullName,
+          email: inviteEmail,
+          role: inviteRole,
+          avatar: inviteRole.includes('Lead') ? '🎯' : inviteRole.includes('Security') ? '🛡️' : '💻',
+          status: 'Active Now',
+        });
+      }
+
+      org.members = updatedMembers;
+      localStorage.setItem('teammemory_active_organization', JSON.stringify(org));
+    } catch (e) {
+      // pass
+    }
+
+    const invitedUser = {
+      id: `usr-onboarded-${Date.now()}`,
+      email: inviteEmail,
+      full_name: inviteFullName,
+      role: inviteRole.toLowerCase().includes('lead') ? 'lead' : 'developer',
+      organization_id: 'org-active-001',
+      is_active: true,
+    };
+
+    setCurrentWorkspace(inviteOrgName);
+    setAuth('jwt-invited-token', invitedUser as any);
+    setIsLoading(false);
+    navigate('/', { replace: true });
+  };
+
   const handle1ClickPreset = (roleEmail: string, roleName: string) => {
     setEmail(roleEmail);
     setPassword('changeme123');
@@ -136,11 +251,24 @@ export function LoginPage() {
       organization_id: 'org-sunbots-001',
       is_active: true,
     };
+    const defaultOrg = {
+      name: 'SunBots Technologies',
+      adminName: 'Sarah Connor',
+      adminEmail: 'sarah@sunbots.ai',
+      invitedEmails: ['devin@sunbots.ai', 'alex@sunbots.ai', 'morgan@sunbots.ai'],
+      techStack: ['FastAPI', 'PostgreSQL', 'pgvector', 'Redis', 'Docker'],
+      members: [
+        { name: 'Sarah Connor (Owner)', email: 'sarah@sunbots.ai', role: 'Workspace Owner', avatar: '👑', status: 'Active Now' },
+        { name: 'Devin Thorne', email: 'devin@sunbots.ai', role: 'Software Engineer', avatar: '💻', status: 'Active Now' },
+        { name: 'Alex Vance', email: 'alex@sunbots.ai', role: 'Tech Lead', avatar: '🎯', status: 'Active Now' },
+        { name: 'Morgan Chase', email: 'morgan@sunbots.ai', role: 'Security Auditor', avatar: '🛡️', status: 'Active 1h ago' },
+      ]
+    };
+    localStorage.setItem('teammemory_active_organization', JSON.stringify(defaultOrg));
+    setCurrentWorkspace('SunBots Technologies');
     setAuth('active-token', u as any);
     navigate('/', { replace: true });
   };
-
-  const [customTechInput, setCustomTechInput] = useState('');
 
   const handleToggleTech = (tech: string) => {
     setTechStack((prev) =>
@@ -177,8 +305,8 @@ export function LoginPage() {
       <div className="w-full max-w-2xl space-y-8">
         {/* Landing Hero */}
         <div className="text-center space-y-3">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-[#8B5CF6]/15 text-[#C4B5FD] border border-[#8B5CF6]/30 rounded-full text-xs font-mono">
-            <span>🧠</span>
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 bg-[#8B5CF6]/15 text-[#C4B5FD] border border-[#8B5CF6]/30 rounded-full text-xs font-mono">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#8B5CF6]" />
             <span>TeamMemoryOS</span>
           </div>
           <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight">
@@ -194,7 +322,7 @@ export function LoginPage() {
           {isAuthenticated ? (
             <div className="space-y-4 text-center">
               <div className="p-4 bg-[#1E1938] border border-[#2D264E] rounded-2xl space-y-1.5">
-                <span className="text-xs text-[#22C55E] font-bold block">✓ Active Session</span>
+                <span className="text-xs text-[#22C55E] font-bold block">Active Session</span>
                 <p className="text-sm font-bold text-white">{user?.full_name || 'Engineer'}</p>
                 <p className="text-xs text-[#A5A0C8] font-mono">{user?.email}</p>
               </div>
@@ -207,29 +335,40 @@ export function LoginPage() {
             </div>
           ) : (
             <>
-              {/* Tab Mode Switcher: Sign In | Create Organization */}
-              <div className="grid grid-cols-2 gap-1 bg-[#0B0914] p-1 rounded-2xl border border-[#2D264E] text-xs font-bold">
+              {/* Tab Mode Switcher: Sign In | Create Organization | Accept Invitation */}
+              <div className="grid grid-cols-3 gap-1 bg-[#0B0914] p-1 rounded-2xl border border-[#2D264E] text-[11px] font-bold">
                 <button
                   type="button"
                   onClick={() => setAuthMode('signin')}
-                  className={`py-2.5 rounded-xl transition-all ${
+                  className={`py-2 rounded-xl transition-all ${
                     authMode === 'signin'
                       ? 'bg-[#8B5CF6] text-white shadow-md shadow-[#8B5CF6]/20'
                       : 'text-[#A5A0C8] hover:text-white'
                   }`}
                 >
-                  🔑 Sign In
+                  Sign In
                 </button>
                 <button
                   type="button"
                   onClick={() => setAuthMode('register_org')}
-                  className={`py-2.5 rounded-xl transition-all ${
+                  className={`py-2 rounded-xl transition-all ${
                     authMode === 'register_org'
                       ? 'bg-[#8B5CF6] text-white shadow-md shadow-[#8B5CF6]/20'
                       : 'text-[#A5A0C8] hover:text-white'
                   }`}
                 >
-                  🏢 Create Organization
+                  Create Org
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAuthMode('accept_invite')}
+                  className={`py-2 rounded-xl transition-all ${
+                    authMode === 'accept_invite'
+                      ? 'bg-[#8B5CF6] text-white shadow-md shadow-[#8B5CF6]/20'
+                      : 'text-[#A5A0C8] hover:text-white'
+                  }`}
+                >
+                  Join Team
                 </button>
               </div>
 
@@ -254,7 +393,9 @@ export function LoginPage() {
                         onClick={() => handle1ClickPreset('devin@teammemory.com', 'Devin Thorne')}
                         className="p-2.5 bg-[#1E1938] hover:bg-[#28214B] border border-[#2D264E] hover:border-[#8B5CF6]/50 rounded-xl text-white font-medium transition-all group"
                       >
-                        <span className="text-base block mb-0.5">💻</span>
+                        <span className="h-6 w-6 mx-auto mb-1 rounded-lg bg-[#8B5CF6]/20 text-[#C4B5FD] flex items-center justify-center text-[10px] font-bold font-mono">
+                          DT
+                        </span>
                         <span className="text-[11px] block font-bold">Devin</span>
                         <span className="text-[9px] text-[#A5A0C8] font-mono">Developer</span>
                       </button>
@@ -264,7 +405,9 @@ export function LoginPage() {
                         onClick={() => handle1ClickPreset('sarah@teammemory.com', 'Sarah Connor')}
                         className="p-2.5 bg-[#1E1938] hover:bg-[#28214B] border border-[#2D264E] hover:border-[#8B5CF6]/50 rounded-xl text-white font-medium transition-all group"
                       >
-                        <span className="text-base block mb-0.5">🎯</span>
+                        <span className="h-6 w-6 mx-auto mb-1 rounded-lg bg-teal-500/20 text-teal-300 flex items-center justify-center text-[10px] font-bold font-mono">
+                          SC
+                        </span>
                         <span className="text-[11px] block font-bold">Sarah</span>
                         <span className="text-[9px] text-[#A5A0C8] font-mono">Tech Lead</span>
                       </button>
@@ -274,7 +417,9 @@ export function LoginPage() {
                         onClick={() => handle1ClickPreset('alex@teammemory.com', 'Alex Vance')}
                         className="p-2.5 bg-[#1E1938] hover:bg-[#28214B] border border-[#2D264E] hover:border-[#8B5CF6]/50 rounded-xl text-white font-medium transition-all group"
                       >
-                        <span className="text-base block mb-0.5">👑</span>
+                        <span className="h-6 w-6 mx-auto mb-1 rounded-lg bg-amber-500/20 text-amber-300 flex items-center justify-center text-[10px] font-bold font-mono">
+                          AV
+                        </span>
                         <span className="text-[11px] block font-bold">Alex</span>
                         <span className="text-[9px] text-[#A5A0C8] font-mono">Owner</span>
                       </button>
@@ -347,7 +492,7 @@ export function LoginPage() {
                       type="text"
                       value={orgName}
                       onChange={(e) => setOrgName(e.target.value)}
-                      placeholder="e.g. SunBots Technologies, Acme Corp"
+                      placeholder="e.g. cultuss, Stripe Engineering, Acme Corp"
                       className="w-full bg-[#0B0914] border border-[#2D264E] focus:border-[#8B5CF6] rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none"
                     />
                   </div>
@@ -361,7 +506,7 @@ export function LoginPage() {
                         type="text"
                         value={adminName}
                         onChange={(e) => setAdminName(e.target.value)}
-                        placeholder="Sarah Connor"
+                        placeholder="Jay Patel"
                         className="w-full bg-[#0B0914] border border-[#2D264E] focus:border-[#8B5CF6] rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none"
                       />
                     </div>
@@ -374,7 +519,7 @@ export function LoginPage() {
                         type="email"
                         value={adminEmail}
                         onChange={(e) => setAdminEmail(e.target.value)}
-                        placeholder="sarah@sunbots.ai"
+                        placeholder="jay@admin.in"
                         className="w-full bg-[#0B0914] border border-[#2D264E] focus:border-[#8B5CF6] rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none"
                       />
                     </div>
@@ -516,6 +661,102 @@ export function LoginPage() {
                     className="w-full py-3.5 bg-gradient-to-r from-[#22C55E] via-teal-500 to-emerald-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-xs rounded-xl shadow-xl shadow-[#22C55E]/25 transition-all flex items-center justify-center gap-2 mt-2"
                   >
                     <span>{isLoading ? 'Creating Workspace...' : '🚀 Create Workspace & Launch →'}</span>
+                  </button>
+                </form>
+              )}
+
+              {/* ───────────────────────────────────────────────────────── */}
+              {/* TAB 3: ACCEPT INVITATION & ONBOARD TEAMMATE               */}
+              {/* ───────────────────────────────────────────────────────── */}
+              {authMode === 'accept_invite' && (
+                <form onSubmit={handleAcceptInvitation} className="space-y-3.5 text-left">
+                  <div className="text-center space-y-1 pb-1 border-b border-[#2D264E]">
+                    <div className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-[#22C55E]/15 text-[#22C55E] border border-[#22C55E]/30 rounded-full text-[10px] font-mono">
+                      <span>✉️</span>
+                      <span>Invitation Received</span>
+                    </div>
+                    <h2 className="text-base font-bold text-white">Join {inviteOrgName || 'Team Workspace'}</h2>
+                    <p className="text-xs text-[#A5A0C8]">
+                      Complete your engineer profile to enter the shared memory workspace.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-mono text-[#A5A0C8] block mb-1">
+                      Organization Workspace:
+                    </label>
+                    <input
+                      type="text"
+                      value={inviteOrgName}
+                      onChange={(e) => setInviteOrgName(e.target.value)}
+                      placeholder="Organization Name"
+                      className="w-full bg-[#0B0914] border border-[#2D264E] focus:border-[#8B5CF6] rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="text-[11px] font-mono text-[#A5A0C8] block mb-1">
+                        Your Full Name:
+                      </label>
+                      <input
+                        type="text"
+                        value={inviteFullName}
+                        onChange={(e) => setInviteFullName(e.target.value)}
+                        placeholder="Juli Sharma"
+                        className="w-full bg-[#0B0914] border border-[#2D264E] focus:border-[#8B5CF6] rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-mono text-[#A5A0C8] block mb-1">
+                        Invited Work Email:
+                      </label>
+                      <input
+                        type="email"
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                        placeholder="juli@cultuss.ai"
+                        className="w-full bg-[#0B0914] border border-[#2D264E] focus:border-[#8B5CF6] rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-mono text-[#A5A0C8] block mb-1">
+                      Create Password:
+                    </label>
+                    <input
+                      type="password"
+                      value={invitePassword}
+                      onChange={(e) => setInvitePassword(e.target.value)}
+                      placeholder="Set your account password"
+                      className="w-full bg-[#0B0914] border border-[#2D264E] focus:border-[#8B5CF6] rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-mono text-[#A5A0C8] block mb-1">
+                      Select Engineering Role:
+                    </label>
+                    <select
+                      value={inviteRole}
+                      onChange={(e: any) => setInviteRole(e.target.value)}
+                      className="w-full bg-[#0B0914] border border-[#2D264E] focus:border-[#8B5CF6] rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
+                    >
+                      <option value="Developer">💻 Developer / Backend Engineer</option>
+                      <option value="Tech Lead">🎯 Tech Lead / Architect</option>
+                      <option value="Security Auditor">🛡️ Security Auditor</option>
+                      <option value="DevOps / SRE">⚡ DevOps / SRE</option>
+                    </select>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full py-3.5 bg-gradient-to-r from-[#8B5CF6] via-purple-600 to-[#6D28D9] hover:from-[#7C3AED] hover:to-[#5B21B6] text-white font-bold text-xs rounded-xl shadow-xl shadow-[#8B5CF6]/25 transition-all flex items-center justify-center gap-2 mt-2"
+                  >
+                    <span>{isLoading ? 'Joining Workspace...' : '🚀 Accept Invitation & Enter Workspace →'}</span>
                   </button>
                 </form>
               )}
