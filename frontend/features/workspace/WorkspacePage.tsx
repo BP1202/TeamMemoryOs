@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { m, AnimatePresence } from 'framer-motion';
 import { useUIStore } from '@stores/uiStore';
 import { useAuthStore } from '@stores/authStore';
 
@@ -22,12 +23,21 @@ interface ServiceCard {
   description: string;
 }
 
+interface RepoConfig {
+  repoUrl: string;
+  branch: string;
+  docPath: string;
+  lastSync: string;
+  status: 'Connected' | 'Syncing';
+}
+
 export function WorkspacePage() {
   const currentWorkspace = useUIStore((s) => s.currentWorkspace);
+  const setCurrentWorkspace = useUIStore((s) => s.setCurrentWorkspace);
   const user = useAuthStore((s) => s.user);
 
   // Read active organization metadata
-  const [activeOrg] = useState(() => {
+  const [activeOrg, setActiveOrg] = useState(() => {
     try {
       const stored = localStorage.getItem('teammemory_active_organization');
       if (stored) return JSON.parse(stored);
@@ -35,21 +45,40 @@ export function WorkspacePage() {
       // pass
     }
     return {
-      name: currentWorkspace || 'SunBots Technologies',
-      adminName: user?.full_name || 'Sarah Connor',
-      adminEmail: user?.email || 'sarah@sunbots.ai',
-      invitedEmails: ['devin@sunbots.ai', 'alex@sunbots.ai', 'morgan@sunbots.ai'],
-      techStack: ['FastAPI', 'PostgreSQL', 'pgvector', 'Redis', 'Docker'],
+      name: currentWorkspace || 'cultuss',
+      adminName: user?.full_name || 'Jay Patel',
+      adminEmail: user?.email || 'jay@admin.in',
+      invitedEmails: ['juli@cultuss.ai', 'janvi@cultuss.ai', 'jeel@cultuss.ai', 'joy@cultuss.ai'],
+      techStack: ['FastAPI', 'PostgreSQL', 'pgvector', 'Docker', 'React', 'Python'],
+      repoUrl: 'https://github.com/cultuss/teammemory-os',
+      branch: 'main',
+      docPath: 'docs/architecture',
     };
   });
 
+  // Setup Workspace Modal State
+  const [showSetupModal, setShowSetupModal] = useState(false);
+  const [editOrgName, setEditOrgName] = useState(activeOrg.name || 'cultuss');
+  const [editRepoUrl, setEditRepoUrl] = useState(activeOrg.repoUrl || 'https://github.com/cultuss/teammemory-os');
+  const [editBranch, setEditBranch] = useState(activeOrg.branch || 'main');
+  const [editDocPath, setEditDocPath] = useState(activeOrg.docPath || 'docs/architecture');
+  const [editTechStack, setEditTechStack] = useState<string[]>(
+    Array.isArray(activeOrg.techStack) ? activeOrg.techStack : ['FastAPI', 'PostgreSQL', 'pgvector', 'Docker', 'React']
+  );
+  const [customTechInput, setCustomTechInput] = useState('');
+  const [newInviteEmail, setNewInviteEmail] = useState('');
+  const [invitedList, setInvitedList] = useState<string[]>(
+    Array.isArray(activeOrg.invitedEmails) ? activeOrg.invitedEmails : ['juli@cultuss.ai', 'janvi@cultuss.ai']
+  );
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
   // Dynamic Members Roster
-  const [members] = useState<TeamMember[]>(() => {
+  const members: TeamMember[] = (() => {
     if (Array.isArray(activeOrg.members) && activeOrg.members.length > 0) {
       return activeOrg.members.map((m: any, idx: number) => ({
         name: m.name,
         role: m.role || 'Software Engineer',
-        avatar: m.avatar || (m.role?.includes('Owner') ? '👑' : idx % 3 === 0 ? '💻' : idx % 3 === 1 ? '🎯' : '🛡️'),
+        avatar: m.name.replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase() || 'EN',
         memories_created: m.status?.includes('Pending') ? 0 : 8 + idx * 4,
         problems_solved: m.status?.includes('Pending') ? 0 : 12 + idx * 6,
         prs_reviewed: m.status?.includes('Pending') ? 0 : 15 + idx * 8,
@@ -59,9 +88,9 @@ export function WorkspacePage() {
 
     const list: TeamMember[] = [
       {
-        name: `${activeOrg.adminName || 'Admin'} (Owner)`,
+        name: `${activeOrg.adminName || 'Jay Patel'} (Owner)`,
         role: 'Workspace Owner / Lead',
-        avatar: '👑',
+        avatar: (activeOrg.adminName || 'JP').replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase(),
         memories_created: 18,
         problems_solved: 34,
         prs_reviewed: 52,
@@ -76,7 +105,7 @@ export function WorkspacePage() {
         list.push({
           name: formattedName,
           role: idx === 0 ? 'Senior Backend Engineer' : 'Fullstack Engineer',
-          avatar: idx === 0 ? '💻' : idx === 1 ? '🎯' : '🛡️',
+          avatar: formattedName.slice(0, 2).toUpperCase(),
           memories_created: 8 + idx * 4,
           problems_solved: 12 + idx * 6,
           prs_reviewed: 15 + idx * 8,
@@ -86,13 +115,13 @@ export function WorkspacePage() {
     }
 
     return list;
-  });
+  })();
 
   // Dynamic Services Catalog from Organization Tech Stack
-  const [services] = useState<ServiceCard[]>(() => {
+  const services: ServiceCard[] = (() => {
     const stack = Array.isArray(activeOrg.techStack) && activeOrg.techStack.length > 0
       ? activeOrg.techStack
-      : ['FastAPI', 'PostgreSQL', 'pgvector', 'Redis', 'Docker'];
+      : ['FastAPI', 'PostgreSQL', 'pgvector', 'Docker', 'React', 'Python'];
 
     return stack.map((tech: string, idx: number) => {
       let desc = `${tech} production architecture integration and verified memory guidelines.`;
@@ -113,18 +142,77 @@ export function WorkspacePage() {
       return {
         name: `${tech} Service`,
         status: 'Healthy',
-        owner: activeOrg.adminName || 'Sarah Connor',
+        owner: activeOrg.adminName || 'Jay Patel',
         endpoints_count: 6 + idx * 4,
         known_incidents: 2 + (idx % 3),
         memories_count: 5 + idx * 3,
         description: desc,
       };
     });
-  });
+  })();
+
+  // Save Workspace Setup Handler
+  const handleSaveSetup = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const updated = {
+      ...activeOrg,
+      name: editOrgName.trim() || activeOrg.name,
+      repoUrl: editRepoUrl.trim(),
+      branch: editBranch.trim(),
+      docPath: editDocPath.trim(),
+      techStack: editTechStack,
+      invitedEmails: invitedList,
+    };
+
+    setActiveOrg(updated);
+    setCurrentWorkspace(updated.name);
+    try {
+      localStorage.setItem('teammemory_active_organization', JSON.stringify(updated));
+    } catch (e) {}
+
+    setShowSetupModal(false);
+    setToastMsg(`✓ Workspace configuration updated for ${updated.name}`);
+    setTimeout(() => setToastMsg(null), 4000);
+  };
+
+  const handleToggleTech = (tech: string) => {
+    setEditTechStack((prev) =>
+      prev.includes(tech) ? prev.filter((t) => t !== tech) : [...prev, tech]
+    );
+  };
+
+  const handleAddCustomTech = (e: React.KeyboardEvent | React.MouseEvent) => {
+    if ('key' in e && e.key !== 'Enter' && e.key !== ',') return;
+    e.preventDefault();
+    const trimmed = customTechInput.trim().replace(/,/g, '');
+    if (trimmed && !editTechStack.includes(trimmed)) {
+      setEditTechStack((prev) => [...prev, trimmed]);
+      setCustomTechInput('');
+    }
+  };
+
+  const handleAddInvite = (e?: React.KeyboardEvent | React.MouseEvent) => {
+    if (e && 'key' in e && e.key !== 'Enter' && e.key !== ',') return;
+    if (e) e.preventDefault();
+    const trimmed = newInviteEmail.trim().replace(/,/g, '');
+    if (trimmed && !invitedList.includes(trimmed)) {
+      setInvitedList((prev) => [...prev, trimmed]);
+      setNewInviteEmail('');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#0B0914] text-white p-6 md:p-10 space-y-8 font-sans max-w-7xl mx-auto">
-      {/* Header */}
+      {/* Toast Notification */}
+      {toastMsg && (
+        <div className="fixed top-6 right-6 z-50 px-4 py-3 bg-[#22C55E]/15 border border-[#22C55E]/40 text-[#22C55E] rounded-2xl text-xs font-mono shadow-2xl backdrop-blur-md animate-fade-in flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-[#22C55E]" />
+          <span>{toastMsg}</span>
+        </div>
+      )}
+
+      {/* Header with Setup Workspace Action */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-[#2D264E]">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -144,7 +232,16 @@ export function WorkspacePage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="p-3 px-4 bg-[#141224] border border-[#2D264E] rounded-2xl flex items-center gap-4 text-xs font-mono">
+          {/* Setup Workspace Button */}
+          <button
+            type="button"
+            onClick={() => setShowSetupModal(true)}
+            className="px-4 py-2.5 bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] hover:from-[#7C3AED] hover:to-[#5B21B6] text-white font-bold text-xs rounded-xl shadow-lg shadow-[#8B5CF6]/25 transition-all flex items-center gap-2"
+          >
+            <span>Setup Workspace</span>
+          </button>
+
+          <div className="p-2.5 px-4 bg-[#141224] border border-[#2D264E] rounded-2xl flex items-center gap-4 text-xs font-mono">
             <div>
               <span className="text-[10px] text-[#A5A0C8] block">Team Roster</span>
               <span className="text-white font-bold">{members.length} Engineers</span>
@@ -155,6 +252,37 @@ export function WorkspacePage() {
               <span className="text-[#C4B5FD] font-bold">{services.length} Services</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Connected Git Repositories Section */}
+      <div className="p-5 bg-[#141224] border border-[#2D264E] rounded-3xl space-y-3 shadow-xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-[#8B5CF6] font-bold">
+              Connected Source Repository
+            </span>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#22C55E]/15 text-[#22C55E] border border-[#22C55E]/30 font-bold">
+              Synced
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowSetupModal(true)}
+            className="text-xs font-mono text-[#8B5CF6] hover:text-[#C4B5FD]"
+          >
+            Configure →
+          </button>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono pt-1">
+          <div>
+            <span className="text-white font-bold block">{activeOrg.repoUrl || 'https://github.com/cultuss/teammemory-os'}</span>
+            <span className="text-[#A5A0C8] text-[11px]">
+              Branch: <strong className="text-white">{activeOrg.branch || 'main'}</strong> • Docs: <strong className="text-white">{activeOrg.docPath || 'docs/architecture'}</strong>
+            </span>
+          </div>
+          <span className="text-[#A5A0C8] text-[10px]">Continuous Memory Ingestion Active</span>
         </div>
       </div>
 
@@ -183,7 +311,7 @@ export function WorkspacePage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[#8B5CF6] to-[#6D28D9] text-white flex items-center justify-center text-xs font-bold font-mono shadow-md shadow-[#8B5CF6]/20">
-                    {m.name.replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase() || 'EN'}
+                    {m.avatar || 'EN'}
                   </div>
                   <div>
                     <h3 className="text-xs font-bold text-white">{m.name}</h3>
@@ -222,8 +350,8 @@ export function WorkspacePage() {
       {/* Services & Tech Stack Catalog */}
       <div className="space-y-4 pt-2">
         <div>
-          <h2 className="text-base font-bold text-white flex items-center gap-2">
-            <span>⚙️</span> Connected Services & Primary Tech Stack
+          <h2 className="text-base font-bold text-white">
+            Connected Services & Primary Tech Stack
           </h2>
           <p className="text-xs text-[#A5A0C8]">
             Microservices and infrastructure monitored with persistent engineering memory.
@@ -260,6 +388,205 @@ export function WorkspacePage() {
           ))}
         </div>
       </div>
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* SETUP WORKSPACE MODAL                                         */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showSetupModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <m.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-[#141224] border border-[#8B5CF6]/50 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 shadow-2xl space-y-5"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-[#2D264E]">
+                <div>
+                  <h2 className="text-lg font-bold text-white">Setup Workspace</h2>
+                  <p className="text-xs text-[#A5A0C8]">
+                    Configure repository connection, tech stack, and team settings.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowSetupModal(false)}
+                  className="h-8 w-8 rounded-xl bg-[#1E1938] text-[#A5A0C8] hover:text-white flex items-center justify-center text-xs"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveSetup} className="space-y-4 text-left">
+                {/* Organization Name */}
+                <div>
+                  <label className="text-[11px] font-mono text-[#A5A0C8] block mb-1">
+                    Organization Workspace Name:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editOrgName}
+                    onChange={(e) => setEditOrgName(e.target.value)}
+                    placeholder="e.g. cultuss"
+                    className="w-full bg-[#0B0914] border border-[#2D264E] focus:border-[#8B5CF6] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none"
+                  />
+                </div>
+
+                {/* Git Repository Settings */}
+                <div className="p-4 bg-[#0B0914] border border-[#2D264E] rounded-2xl space-y-3">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#8B5CF6] font-bold block">
+                    Git Repository Connection
+                  </span>
+
+                  <div>
+                    <label className="text-[11px] font-mono text-[#A5A0C8] block mb-1">
+                      Repository URL:
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editRepoUrl}
+                      onChange={(e) => setEditRepoUrl(e.target.value)}
+                      placeholder="https://github.com/organization/repository"
+                      className="w-full bg-[#141224] border border-[#2D264E] focus:border-[#8B5CF6] rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none font-mono"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] font-mono text-[#A5A0C8] block mb-1">
+                        Default Branch:
+                      </label>
+                      <input
+                        type="text"
+                        value={editBranch}
+                        onChange={(e) => setEditBranch(e.target.value)}
+                        placeholder="main"
+                        className="w-full bg-[#141224] border border-[#2D264E] focus:border-[#8B5CF6] rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-mono text-[#A5A0C8] block mb-1">
+                        Docs / ADR Path:
+                      </label>
+                      <input
+                        type="text"
+                        value={editDocPath}
+                        onChange={(e) => setEditDocPath(e.target.value)}
+                        placeholder="docs/architecture"
+                        className="w-full bg-[#141224] border border-[#2D264E] focus:border-[#8B5CF6] rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tech Stack Services */}
+                <div className="space-y-2">
+                  <label className="text-[11px] font-mono text-[#A5A0C8] block">
+                    Connected Tech Stack (Selected Services):
+                  </label>
+
+                  <div className="flex flex-wrap gap-1.5 p-2 bg-[#0B0914] border border-[#2D264E] rounded-xl min-h-[38px] items-center">
+                    {editTechStack.map((tech) => (
+                      <span
+                        key={tech}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[11px] font-mono bg-[#8B5CF6] text-white font-semibold"
+                      >
+                        <span>{tech}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleTech(tech)}
+                          className="hover:text-rose-300 transition-colors text-[10px]"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+
+                    <input
+                      type="text"
+                      value={customTechInput}
+                      onChange={(e) => setCustomTechInput(e.target.value)}
+                      onKeyDown={handleAddCustomTech}
+                      placeholder="+ Type more & Enter..."
+                      className="bg-transparent border-none text-xs text-white placeholder-zinc-500 focus:outline-none flex-grow min-w-[120px] font-mono px-1 py-0.5"
+                    />
+                    {customTechInput.trim() && (
+                      <button
+                        type="button"
+                        onClick={handleAddCustomTech}
+                        className="px-2 py-0.5 bg-[#8B5CF6]/30 hover:bg-[#8B5CF6] text-white text-[10px] rounded-md font-mono transition-all"
+                      >
+                        Add +
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Invite Teammates */}
+                <div className="space-y-2">
+                  <label className="text-[11px] font-mono text-[#A5A0C8] block">
+                    Team Members & Invitations:
+                  </label>
+                  <div className="flex flex-wrap gap-1.5 p-2 bg-[#0B0914] border border-[#2D264E] rounded-xl min-h-[38px] items-center">
+                    {invitedList.map((em) => (
+                      <span
+                        key={em}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[11px] font-mono bg-[#1E1938] border border-[#8B5CF6]/50 text-[#C4B5FD] font-semibold"
+                      >
+                        <span>{em}</span>
+                        <button
+                          type="button"
+                          onClick={() => setInvitedList((prev) => prev.filter((x) => x !== em))}
+                          className="hover:text-rose-400 transition-colors text-[10px]"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+
+                    <input
+                      type="email"
+                      value={newInviteEmail}
+                      onChange={(e) => setNewInviteEmail(e.target.value)}
+                      onKeyDown={handleAddInvite}
+                      placeholder="+ Add email & Enter..."
+                      className="bg-transparent border-none text-xs text-white placeholder-zinc-500 focus:outline-none flex-grow min-w-[140px] font-mono px-1 py-0.5"
+                    />
+                    {newInviteEmail.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => handleAddInvite()}
+                        className="px-2 py-0.5 bg-[#22C55E] text-white text-[10px] rounded-md font-mono font-bold transition-all"
+                      >
+                        + Invite
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowSetupModal(false)}
+                    className="px-4 py-2.5 bg-[#1E1938] hover:bg-[#28214B] border border-[#2D264E] text-[#A5A0C8] rounded-xl text-xs font-semibold transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] hover:from-[#7C3AED] hover:to-[#5B21B6] text-white font-bold text-xs rounded-xl shadow-lg shadow-[#8B5CF6]/25 transition-all"
+                  >
+                    Save Workspace Configuration →
+                  </button>
+                </div>
+              </form>
+            </m.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
