@@ -38,50 +38,6 @@ TeamMemoryOS was developed from inception using **IBM Bob** as the primary AI en
 ### 2. IBM Granite (Runtime Application Intelligence)
 * Powers contextual memory retrieval, semantic entity extraction, and multi-agent reasoning.
 * Debug Agent to provide grounded, hallucination-free code analysis.
-
----
-
-## 🏗️ System Architecture
-
-```mermaid
-graph TD
-    subgraph Frontend["Frontend Client (React 18 + TypeScript + Tailwind CSS)"]
-        UI_Dash[Executive Dashboard]
-        UI_Memory[Memory & Knowledge Explorer]
-        UI_Graph[Interactive Knowledge Graph]
-        UI_Agents[AI Coworkers Command Center]
-    end
-
-    subgraph Backend["Core Platform (FastAPI + Python 3.11+)"]
-        API[FastAPI Gateway & Auth]
-        Orchestrator[Multi-Agent Orchestration Engine]
-        
-        subgraph Agents["IBM Granite Multi-Agent Swarm"]
-            RepoAgent[Repository Agent]
-            DebugAgent[Debug & Incident Agent]
-            PRGuardian[PR Guardian Agent]
-        end
-        
-        MemoryEngine[Semantic Memory Engine]
-        GraphService[Entity Graph Engine]
-    end
-
-    subgraph Storage["Persistence & Intelligence Layer"]
-        PG[(PostgreSQL 17 + pgvector)]
-        GraniteLLM[IBM Granite Models]
-    end
-
-    Frontend -->|REST / WebSockets| API
-    API --> Orchestrator
-    API --> MemoryEngine
-    API --> GraphService
-    Orchestrator --> Agents
-    Agents --> GraniteLLM
-    Agents --> MemoryEngine
-    MemoryEngine --> PG
-    GraphService --> PG
-```
-
 ---
 
 ## 🛠️ Technology Stack
