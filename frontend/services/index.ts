@@ -1,0 +1,32 @@
+/**
+ * Services barrel export.
+ */
+
+export { loginUser } from './authService';
+export { getCurrentUser } from './userService';
+export { getHealth, getDbHealth } from './healthService';
+export { getMemoryList, getScenarioList, getAgentList } from './dashboardService';
+export {
+  listMemoryEntries,
+  getMemoryEntry,
+  createMemoryEntry,
+  searchMemoryEntries,
+} from './memoryService';
+export { listScenarios, createScenario } from './scenarioService';
+export { listEntities, getEntity, getEntitiesForMemory } from './entityService';
+export {
+  getRelationship,
+  listOutgoingRelationships,
+  listNeighbors,
+} from './relationshipService';
+export { askChat } from './chatService';
+export {
+  listAgents,
+  getAgent,
+  planWorkflow,
+  runWorkflow,
+  searchRepository,
+  listBranches,
+  getFileHistory,
+  analyzeDebug,
+} from './agentsService';

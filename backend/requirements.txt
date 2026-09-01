@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+pydantic[email]
+pydantic-settings
+python-dotenv
+httpx
+
+# Auth
+bcrypt
+python-jose[cryptography]
+python-multipart
+
+# Database
+sqlalchemy[asyncio]
+alembic
+psycopg[binary]
+pgvector
