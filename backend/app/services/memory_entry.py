@@ -4,11 +4,30 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.cache.embedding_cache import EmbeddingCache
 from app.models.memory_entry import EMBEDDING_DIM, MemoryEntry
+from app.providers.embedding_provider import get_embedding_provider
 from app.schemas.memory_entry import MemoryEntryCreate
 
 
-def create_memory_entry(db: Session, entry_in: MemoryEntryCreate) -> MemoryEntry:
+def create_memory_entry(
+    db: Session,
+    entry_in: MemoryEntryCreate,
+    auto_embed: bool = True,
+) -> MemoryEntry:
+    """Create a new memory entry with automatic chunk hash and vector embedding."""
+    meta = dict(entry_in.meta) if entry_in.meta else {}
+    chunk_hash = EmbeddingCache.compute_hash(entry_in.content)
+    meta["chunk_hash"] = chunk_hash
+
+    embedding: list[float] | None = None
+    if auto_embed:
+        emb_provider = get_embedding_provider()
+        try:
+            embedding = emb_provider.embed(entry_in.content)
+        except Exception:
+            embedding = None
+
     entry = MemoryEntry(
         organization_id=entry_in.organization_id,
         scenario_id=entry_in.scenario_id,
@@ -16,7 +35,8 @@ def create_memory_entry(db: Session, entry_in: MemoryEntryCreate) -> MemoryEntry
         memory_type=entry_in.memory_type,
         title=entry_in.title,
         content=entry_in.content,
-        meta=entry_in.meta,
+        meta=meta,
+        embedding=embedding,
     )
     db.add(entry)
     db.commit()
@@ -58,6 +78,7 @@ def store_embedding(
     db: Session,
     entry_id: UUID,
     embedding: list[float],
+    chunk_hash: str | None = None,
 ) -> MemoryEntry | None:
     """Write a pre-computed embedding vector to a memory entry.
 
@@ -74,6 +95,12 @@ def store_embedding(
             f"Embedding has {len(embedding)} dimensions; expected {EMBEDDING_DIM}"
         )
     entry.embedding = embedding
+    
+    meta = dict(entry.meta) if entry.meta else {}
+    h = chunk_hash or EmbeddingCache.compute_hash(entry.content)
+    meta["chunk_hash"] = h
+    entry.meta = meta
+
     db.commit()
     db.refresh(entry)
     return entry
