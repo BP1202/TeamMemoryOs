@@ -71,14 +71,11 @@ def ask(
     """Ask a question grounded in the organisation's memory.
 
     Performs semantic retrieval over the caller's organisation, assembles a
-    Granite prompt with citations, runs inference, and returns the generated
-    answer alongside structured citation metadata.
+    grounded prompt with citations, runs inference via the local LLM provider,
+    and returns the generated answer alongside structured citation metadata.
 
     When ``use_hybrid=True`` the response also contains a full
     ``explanation`` block with citations, graph path, and confidence score.
-
-    Authentication is required — the JWT must belong to a valid user.
-    Organisation scoping is enforced in the retrieval layer.
     """
     result = run_rag(
         db=db,
@@ -95,4 +92,38 @@ def ask(
         provider_used=result.provider_used,
         retrieval_mode=result.retrieval_mode,
         explanation=_serialize_explanation(result.explanation),
+    )
+
+
+@router.post("/stream")
+def stream_ask(
+    body: ChatAskRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Ask a question with real-time token streaming via Server-Sent Events (SSE).
+
+    Streams chunks as:
+      data: {"type": "metadata", ...}\n\n
+      data: {"type": "token", "token": "..."}\n\n
+      data: {"type": "done", "answer": "..."}\n\n
+    """
+    from fastapi.responses import StreamingResponse
+    from app.memory.rag_generation import stream_rag
+
+    return StreamingResponse(
+        stream_rag(
+            db=db,
+            question=body.question,
+            organization_id=body.organization_id,
+            top_k=body.top_k,
+            scenario_id=body.scenario_id,
+            use_hybrid=body.use_hybrid,
+        ),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )
