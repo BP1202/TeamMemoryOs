@@ -15,7 +15,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.memory.embedding_provider import EmbeddingProvider
+from app.memory.embedding_provider import EmbeddingProvider, get_embedding_provider
 from app.models.memory_entry import MemoryEntry
 from app.services.memory_entry import semantic_search
 
@@ -37,7 +37,7 @@ def build_rag_context(
     db: Session,
     query: str,
     organization_id: UUID,
-    provider: EmbeddingProvider,
+    provider: EmbeddingProvider | None = None,
     top_k: int = 5,
     scenario_id: UUID | None = None,
 ) -> RAGContext:
@@ -54,7 +54,8 @@ def build_rag_context(
     Returns:
         A ``RAGContext`` with the ranked entries and a formatted text block.
     """
-    query_embedding = provider.embed(query)
+    emb_provider = provider or get_embedding_provider()
+    query_embedding = emb_provider.embed(query)
 
     entries = semantic_search(
         db=db,

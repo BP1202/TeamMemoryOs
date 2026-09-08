@@ -20,11 +20,12 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.memory.embedding_provider import StubEmbeddingProvider
+from app.cache.embedding_cache import EmbeddingCache
 from app.models.code_index import CodeChunk, CodeFile
 from app.models.entity import MemoryEntity
 from app.models.memory_entry import EMBEDDING_DIM, MemoryEntry, MemoryType
 from app.models.repository import Repository
+from app.providers.embedding_provider import get_embedding_provider
 from app.schemas.code_index import (
     CodeIndexRequest,
     CodeIndexResponse,
@@ -141,7 +142,7 @@ def index_repository(
         )
 
     extensions = {ext if ext.startswith(".") else f".{ext}" for ext in request.file_extensions}
-    emb_provider = StubEmbeddingProvider()
+    emb_provider = get_embedding_provider()
 
     files_indexed = 0
     chunks_created = 0
@@ -194,6 +195,8 @@ def index_repository(
             raw_chunks = _chunk_fixed(content)
 
         for chunk_content, start_line, end_line, chunk_type, symbol_name in raw_chunks:
+            chunk_hash = EmbeddingCache.compute_hash(chunk_content[:3000])
+
             # Create MemoryEntry for the chunk
             mem_entry = MemoryEntry(
                 organization_id=organization_id,
@@ -208,6 +211,7 @@ def index_repository(
                     "symbol_name": symbol_name,
                     "start_line": start_line,
                     "end_line": end_line,
+                    "chunk_hash": chunk_hash,
                 },
             )
             db.add(mem_entry)
@@ -267,7 +271,7 @@ def search_code(
     request: CodeSearchRequest,
 ) -> CodeSearchResponse:
     """Search code chunks using embedding similarity."""
-    emb_provider = StubEmbeddingProvider()
+    emb_provider = get_embedding_provider()
     query_embedding = emb_provider.embed(request.query)
 
     stmt = (

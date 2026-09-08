@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     OLLAMA_TEMPERATURE: float = 0.2
     OLLAMA_MAX_TOKENS: int = 1024
 
+    # Embedding Provider Configuration
+    # Set EMBEDDING_PROVIDER="ollama" or "stub"
+    EMBEDDING_PROVIDER: str = "ollama"
+    EMBEDDING_MODEL: str = "nomic-embed-text"
+    OLLAMA_EMBEDDING_MODEL: str = "nomic-embed-text"
+    EMBEDDING_CACHE_SIZE: int = 5000
+
     # Backwards compatibility / Legacy Granite settings
     GRANITE_PROVIDER: str = "ollama"
     GRANITE_API_KEY: str = ""
