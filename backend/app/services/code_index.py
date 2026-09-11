@@ -223,8 +223,17 @@ def index_repository(
                     "language": language,
                     "chunk_type": chunk_type,
                     "symbol_name": symbol_name,
+                    "chunk_hash": chunk_hash,
                 },
             )
+
+            # Re-use existing embedding from cache/db if chunk hash matches
+            cached_emb = EmbeddingCache().get(chunk_hash)
+            if cached_emb is not None:
+                embedding = cached_emb
+            else:
+                embedding = emb_provider.embed(chunk_content[:2000])
+                EmbeddingCache().set(chunk_hash, embedding)
 
             # Create MemoryEntry for the chunk
             mem_entry = MemoryEntry(
@@ -233,13 +242,9 @@ def index_repository(
                 title=f"{rel_path}:{start_line} [{symbol_name or chunk_type}]",
                 content=chunk_content,
                 meta=chunk_meta,
+                embedding=embedding,
             )
             db.add(mem_entry)
-            db.flush()
-
-            # Store embedding
-            embedding = emb_provider.embed(chunk_content[:2000])
-            mem_entry.embedding = embedding
             db.flush()
 
             chunk = CodeChunk(
