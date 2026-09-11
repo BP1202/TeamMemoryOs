@@ -5,6 +5,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.cache.embedding_cache import EmbeddingCache
+from app.chunking import chunk_text, chunk_to_memory_meta
+from app.chunking.chunk_models import ChunkingConfig, ChunkingStrategy
 from app.models.memory_entry import EMBEDDING_DIM, MemoryEntry
 from app.providers.embedding_provider import get_embedding_provider
 from app.schemas.memory_entry import MemoryEntryCreate
@@ -42,6 +44,86 @@ def create_memory_entry(
     db.commit()
     db.refresh(entry)
     return entry
+
+
+def create_memory_entries_chunked(
+    db: Session,
+    entry_in: MemoryEntryCreate,
+    chunking_config: ChunkingConfig | None = None,
+    auto_embed: bool = True,
+    skip_duplicates: bool = True,
+) -> list[MemoryEntry]:
+    """Split large memory entry content into semantic chunks and store them.
+    
+    Generates SHA-256 hashes for each chunk, skips duplicate chunks when configured,
+    attaches parent-child and header metadata, and computes vector embeddings.
+    """
+    config = chunking_config or ChunkingConfig(strategy=ChunkingStrategy.AUTO)
+    chunk_result = chunk_text(
+        text=entry_in.content,
+        strategy=config.strategy,
+        metadata=entry_in.meta,
+        config=config,
+    )
+
+    if not chunk_result.chunks:
+        return [create_memory_entry(db, entry_in, auto_embed=auto_embed)]
+
+    emb_provider = get_embedding_provider() if auto_embed else None
+    created_entries: list[MemoryEntry] = []
+    seen_hashes: set[str] = set()
+
+    for ch in chunk_result.chunks:
+        if skip_duplicates:
+            if ch.chunk_hash in seen_hashes:
+                continue
+            seen_hashes.add(ch.chunk_hash)
+
+        chunk_meta = chunk_to_memory_meta(
+            ch,
+            extra_fields={"parent_title": entry_in.title} if entry_in.title else None,
+        )
+        if entry_in.meta:
+            # Preserve non-conflicting original user meta
+            for k, v in entry_in.meta.items():
+                if k not in chunk_meta:
+                    chunk_meta[k] = v
+
+        # Determine chunk title
+        if ch.metadata.section_header:
+            chunk_title = f"{entry_in.title} — {ch.metadata.section_header}" if entry_in.title else ch.metadata.section_header
+        elif ch.metadata.symbol_name:
+            chunk_title = f"{entry_in.title} — {ch.metadata.symbol_name}" if entry_in.title else ch.metadata.symbol_name
+        elif len(chunk_result.chunks) > 1:
+            chunk_title = f"{entry_in.title} [Part {ch.chunk_index + 1}/{chunk_result.total_chunks}]" if entry_in.title else f"Part {ch.chunk_index + 1}"
+        else:
+            chunk_title = entry_in.title
+
+        embedding: list[float] | None = None
+        if auto_embed and emb_provider:
+            try:
+                embedding = emb_provider.embed(ch.content)
+            except Exception:
+                embedding = None
+
+        entry = MemoryEntry(
+            organization_id=entry_in.organization_id,
+            scenario_id=entry_in.scenario_id,
+            created_by_user_id=entry_in.created_by_user_id,
+            memory_type=entry_in.memory_type,
+            title=chunk_title,
+            content=ch.content,
+            meta=chunk_meta,
+            embedding=embedding,
+        )
+        db.add(entry)
+        created_entries.append(entry)
+
+    db.commit()
+    for e in created_entries:
+        db.refresh(e)
+
+    return created_entries
 
 
 def get_memory_entry_by_id(db: Session, entry_id: UUID) -> MemoryEntry | None:

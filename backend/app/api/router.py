@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.v1.agents import router as agents_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.chat import router as chat_router
+from app.api.v1.chunking import router as chunking_router
 from app.api.v1.code_search import router as code_search_router
 from app.api.v1.engineering import router as engineering_router
 from app.api.v1.entities import router as entities_router
@@ -38,6 +39,7 @@ api_router.include_router(entities_router, prefix="/entities", tags=["Entities"]
 api_router.include_router(relationships_router, prefix="/relationships", tags=["Relationships"])
 api_router.include_router(memory_links_router, prefix="/memory-links", tags=["MemoryLinks"])
 api_router.include_router(retrieval_router, prefix="/retrieval", tags=["Retrieval"])
+api_router.include_router(chunking_router, prefix="/chunking", tags=["Chunking"])
 # Sprint 6 — AI Engineering Copilot
 api_router.include_router(git_router, prefix="/git", tags=["Git"])
 api_router.include_router(pull_request_router, prefix="/git", tags=["PullRequests"])

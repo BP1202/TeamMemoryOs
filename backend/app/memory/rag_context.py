@@ -99,7 +99,25 @@ def _format_context(query: str, entries: list[MemoryEntry]) -> str:
     ]
     for i, entry in enumerate(entries, start=1):
         title_line = f"    TITLE: {entry.title}" if entry.title else ""
-        block = [f"[{i}] TYPE: {entry.memory_type.value}"]
+        meta = entry.meta or {}
+        context_tags: list[str] = []
+        if meta.get("section_header"):
+            context_tags.append(f"SECTION: {meta['section_header']}")
+        elif meta.get("header_hierarchy"):
+            hierarchy = meta["header_hierarchy"]
+            if isinstance(hierarchy, list) and hierarchy:
+                context_tags.append(f"SECTION: {' > '.join(hierarchy)}")
+        if meta.get("symbol_name"):
+            context_tags.append(f"SYMBOL: {meta['symbol_name']}")
+        if meta.get("file_path"):
+            line_str = f":L{meta.get('start_line', 1)}" if "start_line" in meta else ""
+            context_tags.append(f"FILE: {meta['file_path']}{line_str}")
+
+        type_header = f"[{i}] TYPE: {entry.memory_type.value}"
+        if context_tags:
+            type_header += f" | {' | '.join(context_tags)}"
+
+        block = [type_header]
         if title_line:
             block.append(title_line)
         block.append(f"    {entry.content}")
