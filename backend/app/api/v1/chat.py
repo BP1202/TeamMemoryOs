@@ -1,17 +1,18 @@
 """
-Chat endpoint for TeamMemoryOS — POST /api/v1/chat/ask.
+Chat endpoint for TeamMemoryOS — POST /api/v1/chat and POST /api/v1/chat/stream.
 
-Drives the full RAG pipeline:
-  receive question → retrieve memories → build prompt → Granite → return answer.
-When use_hybrid=True the retrieval stage uses HybridRetriever and the response
-includes a full RetrievalExplanation.
+Drives the LangChain production RAG pipeline:
+  receive question → LangChain retriever → PromptTemplate → ChatOllama → OutputParser.
+When use_hybrid=True the retrieval stage uses HybridRetriever and includes a full
+RetrievalExplanation.
 """
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.db.dependencies import get_db
-from app.memory.rag_generation import run_rag
+from app.memory.rag_generation import run_rag, stream_rag
 from app.models.user import User
 from app.schemas.chat import ChatAskRequest, ChatAskResponse
 from app.schemas.retrieval import (
@@ -62,17 +63,19 @@ def _serialize_explanation(explanation) -> RetrievalExplanationRead | None:
     )
 
 
+@router.post("", response_model=ChatAskResponse)
+@router.post("/", response_model=ChatAskResponse)
 @router.post("/ask", response_model=ChatAskResponse)
 def ask(
     body: ChatAskRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Ask a question grounded in the organisation's memory.
+    """Ask a question grounded in the organisation's memory using LangChain.
 
     Performs semantic retrieval over the caller's organisation, assembles a
-    grounded prompt with citations, runs inference via the local LLM provider,
-    and returns the generated answer alongside structured citation metadata.
+    grounded prompt with citations, runs inference via local ChatOllama,
+    and returns the structured answer alongside citation metadata.
 
     When ``use_hybrid=True`` the response also contains a full
     ``explanation`` block with citations, graph path, and confidence score.
@@ -83,6 +86,7 @@ def ask(
         organization_id=body.organization_id,
         top_k=body.top_k,
         scenario_id=body.scenario_id,
+        scenario_type=body.scenario_type,
         use_hybrid=body.use_hybrid,
     )
     return ChatAskResponse(
@@ -106,11 +110,9 @@ def stream_ask(
     Streams chunks as:
       data: {"type": "metadata", ...}\n\n
       data: {"type": "token", "token": "..."}\n\n
+      data: {"type": "citation", "citation": "..."}\n\n
       data: {"type": "done", "answer": "..."}\n\n
     """
-    from fastapi.responses import StreamingResponse
-    from app.memory.rag_generation import stream_rag
-
     return StreamingResponse(
         stream_rag(
             db=db,
@@ -118,6 +120,7 @@ def stream_ask(
             organization_id=body.organization_id,
             top_k=body.top_k,
             scenario_id=body.scenario_id,
+            scenario_type=body.scenario_type,
             use_hybrid=body.use_hybrid,
         ),
         media_type="text/event-stream",
