@@ -23,14 +23,6 @@ interface ServiceCard {
   description: string;
 }
 
-interface RepoConfig {
-  repoUrl: string;
-  branch: string;
-  docPath: string;
-  lastSync: string;
-  status: 'Connected' | 'Syncing';
-}
-
 export function WorkspacePage() {
   const currentWorkspace = useUIStore((s) => s.currentWorkspace);
   const setCurrentWorkspace = useUIStore((s) => s.setCurrentWorkspace);

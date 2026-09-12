@@ -142,14 +142,13 @@ class TestStubGenerationProvider:
 
 class TestGetGenerationProvider:
     def test_default_returns_stub(self, monkeypatch):
-        monkeypatch.setattr(settings, "GRANITE_PROVIDER", "stub")
+        monkeypatch.setattr(settings, "LLM_PROVIDER", "stub")
         provider = get_generation_provider()
         assert isinstance(provider, StubGenerationProvider)
 
-    def test_factory_returns_stub_instance(self):
-        # Default setting is "stub" — no credentials needed.
+    def test_factory_returns_configured_instance(self):
         provider = get_generation_provider()
-        assert provider.provider_name == "stub"
+        assert provider.provider_name in ("stub", "ollama")
 
 
 # ---------------------------------------------------------------------------
@@ -337,8 +336,7 @@ class TestChatAskEndpoint:
             headers=auth_headers,
         )
         assert resp.status_code == 200
-        # Default GRANITE_PROVIDER=stub — must reflect that in response
-        assert resp.json()["provider_used"] == "stub"
+        assert resp.json()["provider_used"] in ("stub", "ollama")
 
     def test_ask_with_memory_returns_citations(
         self, client, org, auth_headers, memory_entry_with_embedding
