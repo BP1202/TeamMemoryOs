@@ -1,34 +1,50 @@
-"""Git Repository Intelligence API — Milestone 6.1.
+"""Git Repository Intelligence API — Milestone 6.1 & AI-004.
 
 Routes:
-* POST /git/repositories/                   — Register repository
-* GET  /git/repositories/                   — List repositories
-* POST /git/repositories/{id}/sync          — Sync repository
-* GET  /git/repositories/{id}/commits       — List commits
+* POST /git/repositories/                             — Register repository
+* GET  /git/repositories/                             — List repositories
+* POST /git/repositories/{id}/sync                    — Sync repository commits
+* GET  /git/repositories/{id}/commits                 — List commits
+* GET  /git/repositories/{id}/health                  — Repository health & git stats
+* GET  /git/repositories/{id}/branches                — List repository branches
+* GET  /git/repositories/{id}/tags                    — List repository tags
+* GET  /git/repositories/{id}/diff                    — Diff revisions / working tree
+* POST /git/repositories/{id}/index-incremental       — Incremental indexing with hash reuse
 """
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.db.dependencies import get_db
 from app.models.user import User
 from app.schemas.repository import (
+    BranchRead,
+    CommitMemoryRead,
+    DiffResponse,
+    IncrementalIndexRequest,
+    IncrementalIndexResponse,
     RepositoryCreate,
+    RepositoryHealthResponse,
     RepositoryRead,
     RepositorySyncRequest,
     RepositorySyncResponse,
-    CommitMemoryRead,
+    TagRead,
 )
 from app.services.repository import (
     create_repository,
-    get_repositories_by_org,
-    get_repository_by_id,
-    sync_repository,
     get_commits_by_repository,
+    get_repositories_by_org,
+    get_repository_branches,
+    get_repository_by_id,
+    get_repository_diff,
+    get_repository_health,
+    get_repository_tags,
+    incremental_index_repository,
+    sync_repository,
 )
-from sqlalchemy.exc import IntegrityError
 
 router = APIRouter()
 
@@ -99,3 +115,71 @@ def list_commits(
         skip=skip,
         limit=limit,
     )
+
+
+@router.get("/repositories/{repository_id}/health", response_model=RepositoryHealthResponse)
+def get_repo_health(
+    repository_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get repository health, git status, branch counts, and clean/dirty state."""
+    repo = get_repository_by_id(db, repository_id)
+    if repo is None:
+        raise HTTPException(status_code=404, detail="Repository not found.")
+    return get_repository_health(db, repository_id, repo.organization_id)
+
+
+@router.get("/repositories/{repository_id}/branches", response_model=list[BranchRead])
+def list_branches(
+    repository_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List all local and remote branches in the repository."""
+    repo = get_repository_by_id(db, repository_id)
+    if repo is None:
+        raise HTTPException(status_code=404, detail="Repository not found.")
+    return get_repository_branches(db, repository_id, repo.organization_id)
+
+
+@router.get("/repositories/{repository_id}/tags", response_model=list[TagRead])
+def list_tags(
+    repository_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List all tags in the repository."""
+    repo = get_repository_by_id(db, repository_id)
+    if repo is None:
+        raise HTTPException(status_code=404, detail="Repository not found.")
+    return get_repository_tags(db, repository_id, repo.organization_id)
+
+
+@router.get("/repositories/{repository_id}/diff", response_model=DiffResponse)
+def get_diff(
+    repository_id: UUID,
+    base_ref: str | None = Query(default=None, description="Base commit/branch SHA or name"),
+    target_ref: str | None = Query(default=None, description="Target commit/branch SHA or name"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get diff summary of changed files between revisions or working directory."""
+    repo = get_repository_by_id(db, repository_id)
+    if repo is None:
+        raise HTTPException(status_code=404, detail="Repository not found.")
+    return get_repository_diff(db, repository_id, repo.organization_id, base_ref, target_ref)
+
+
+@router.post("/repositories/{repository_id}/index-incremental", response_model=IncrementalIndexResponse)
+def index_repo_incremental(
+    repository_id: UUID,
+    body: IncrementalIndexRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Run incremental indexing with SHA-256 chunk hash reuse on modified files."""
+    repo = get_repository_by_id(db, repository_id)
+    if repo is None:
+        raise HTTPException(status_code=404, detail="Repository not found.")
+    return incremental_index_repository(db, repository_id, repo.organization_id, body)
