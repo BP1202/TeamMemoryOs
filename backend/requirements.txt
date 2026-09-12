@@ -15,3 +15,11 @@ sqlalchemy[asyncio]
 alembic
 psycopg[binary]
 pgvector
+
+# LangChain & LangGraph
+langchain
+langchain-core
+langchain-community
+langchain-ollama
+langchain-postgres
+langgraph

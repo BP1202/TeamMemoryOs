@@ -1,21 +1,29 @@
 """
 Prompt builder for TeamMemoryOS RAG pipeline.
 
-Assembles the final prompt that is sent to the generation model.  The prompt
-has three layers:
+Provides prompt formatting helpers for both direct string generation and
+LangChain ChatPromptTemplate workflows.
 
+Assembles prompts in structured layers:
 1. System prompt  — describes the assistant's role and constraints.
-2. Memory context — the top-k retrieved memory entries from ``rag_context``.
+2. Memory context — the top-k retrieved memory entries from ``rag_context`` or LangChain Document objects.
 3. User question  — the original question verbatim.
-
-Context is trimmed to ``max_chars`` if the assembled prompt would exceed the
-configured limit, ensuring we never exceed the model's context window.
-
-Memory citations (entry ID + type + title) are included at the bottom of the
-prompt so the model can reference them in its answer.
+4. Citations      — formatted list of memory entry IDs and titles.
 """
 from __future__ import annotations
 
+from typing import List, Union
+from langchain_core.documents import Document
+
+from app.langchain.prompt_templates import (
+    ENGINEERING_CHAT_PROMPT,
+    INCIDENT_INVESTIGATION_PROMPT,
+    PULL_REQUEST_REVIEW_PROMPT,
+    REPOSITORY_ANALYSIS_PROMPT,
+    format_documents_to_citations,
+    format_documents_to_context,
+    get_prompt_template,
+)
 from app.models.memory_entry import MemoryEntry
 
 SYSTEM_PROMPT = """\
@@ -35,7 +43,7 @@ Rules:
 def build_prompt(
     question: str,
     context_text: str,
-    entries: list[MemoryEntry],
+    entries: Union[list[MemoryEntry], list[Document]],
     max_chars: int = 8000,
 ) -> str:
     """Assemble the full generation prompt.
@@ -43,7 +51,7 @@ def build_prompt(
     Args:
         question:     The user's question verbatim.
         context_text: Pre-formatted context block from ``build_rag_context``.
-        entries:      Retrieved ``MemoryEntry`` objects used to build citations.
+        entries:      Retrieved ``MemoryEntry`` or ``Document`` objects used to build citations.
         max_chars:    Hard cap on total prompt length (characters).  Context is
                       trimmed from the bottom if the limit is exceeded.
 
@@ -59,14 +67,23 @@ def build_prompt(
     return prompt
 
 
-def _build_citations(entries: list[MemoryEntry]) -> str:
+def _build_citations(entries: Union[list[MemoryEntry], list[Document]]) -> str:
     """Format a compact citation block listing each retrieved memory."""
     if not entries:
         return ""
     lines = ["Citations:"]
     for i, entry in enumerate(entries, start=1):
-        title = f" — {entry.title}" if entry.title else ""
-        lines.append(f"  [{i}] {entry.memory_type.value}{title} (id: {entry.id})")
+        if isinstance(entry, Document):
+            meta = entry.metadata or {}
+            m_type = meta.get("memory_type", "memory")
+            title = f" — {meta['title']}" if meta.get("title") else ""
+            m_id = meta.get("memory_id") or meta.get("id") or "unknown"
+            lines.append(f"  [{i}] {m_type}{title} (id: {m_id})")
+        else:
+            title = f" — {entry.title}" if getattr(entry, "title", None) else ""
+            m_type = getattr(entry, "memory_type", "memory")
+            m_type_val = m_type.value if hasattr(m_type, "value") else str(m_type)
+            lines.append(f"  [{i}] {m_type_val}{title} (id: {entry.id})")
     return "\n".join(lines)
 
 
