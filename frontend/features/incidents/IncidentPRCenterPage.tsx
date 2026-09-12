@@ -127,58 +127,6 @@ async def handle_stripe_webhook(event):
     xp: 85,
     adr_reference: 'ADR003: Redis Redlock Mutual Exclusion',
   },
-  {
-    id: 'c4',
-    id: 'tip-1',
-    author: 'Sarah Connor',
-    role: 'Tech Lead',
-    avatar: '🎯',
-    tag: 'Database Gotcha',
-    title: 'Silent Socket Drops on Cloud RDS',
-    tip: 'When running async SQLAlchemy engines in long-lived workers, always enable pool_pre_ping=True and pool_recycle=3600. AWS RDS silently terminates idle TCP connections after 15 minutes, causing sporadic 500 DisconnectionErrors without pre-ping.',
-    code: 'create_engine(DB_URL, pool_pre_ping=True, pool_recycle=3600)',
-    likes: 18,
-    time: '2h ago',
-  },
-  {
-    id: 'tip-2',
-    author: 'Alex Vance',
-    role: 'Workspace Owner',
-    avatar: '👑',
-    tag: 'Security Rule',
-    title: 'Docker Image Layer Secrets Leak',
-    tip: 'Never use ENV DATABASE_KEY="secret" inside Dockerfiles. Anyone with read access to the image can inspect full plain-text layers via "docker history <image>". Always inject credentials using docker-compose env_file or runtime environment secrets.',
-    code: '# Correct: env_file: .env (added to .gitignore)',
-    likes: 24,
-    time: '5h ago',
-  },
-  {
-    id: 'tip-3',
-    author: 'Morgan Chase',
-    role: 'Security Auditor',
-    avatar: '🛡️',
-    tag: 'Concurrency Hack',
-    title: 'Redis Lock try/finally Pattern',
-    tip: 'Whenever acquiring a distributed Redis lock for webhook processing, ALWAYS wrap worker logic in a try...finally block to guarantee lock release. If your worker crashes unhandled, other threads will deadlock until the TTL expires!',
-    code: `lock = redis.lock("inv:123", timeout=15)
-try:
-    process_payment()
-finally:
-    lock.release()`,
-    likes: 15,
-    time: 'Yesterday',
-  },
-  {
-    id: 'tip-4',
-    author: 'Devin Thorne',
-    role: 'Developer',
-    avatar: '💻',
-    tag: 'FastAPI Performance',
-    title: 'Avoid Blocking Calls in async def Routes',
-    tip: 'In FastAPI, never call synchronous blocking libraries (like requests.get or time.sleep) inside an async def route. It blocks the entire single-threaded asyncio event loop! Use httpx.AsyncClient or define the route with standard "def" so FastAPI delegates it to a thread pool.',
-    likes: 12,
-    time: '2 days ago',
-  },
 ];
 
 export function IncidentPRCenterPage() {
@@ -262,7 +210,7 @@ export function IncidentPRCenterPage() {
     const ranks: TeamRank[] = [
       {
         name: `${currentUserName} (You)`,
-        role: user?.role === 'owner' ? 'Workspace Owner / Lead' : 'Senior Engineer',
+        role: 'Workspace Lead & Architect',
         avatar: currentUserName.replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase() || 'ME',
         level: 3,
         xp: userXp,
@@ -459,7 +407,7 @@ export function IncidentPRCenterPage() {
               </span>
             </div>
             <p className="text-xs text-[#A5A0C8]">
-              {user?.role === 'owner' ? 'Workspace Owner / Lead' : 'Level 3 SRE Engineer'} • 135 XP to Level 4
+              Level 3 SRE Engineer • 135 XP to Level 4
             </p>
           </div>
         </div>

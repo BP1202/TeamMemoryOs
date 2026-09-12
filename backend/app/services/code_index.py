@@ -20,11 +20,15 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.memory.embedding_provider import StubEmbeddingProvider
+from app.cache.embedding_cache import EmbeddingCache
+from app.chunking import chunk_text, chunk_to_memory_meta
+from app.chunking.chunk_models import ChunkingConfig, ChunkingStrategy, ChunkMetadata
+from app.chunking.code_chunker import CodeChunker
 from app.models.code_index import CodeChunk, CodeFile
 from app.models.entity import MemoryEntity
 from app.models.memory_entry import EMBEDDING_DIM, MemoryEntry, MemoryType
 from app.models.repository import Repository
+from app.providers.embedding_provider import get_embedding_provider
 from app.schemas.code_index import (
     CodeIndexRequest,
     CodeIndexResponse,
@@ -141,7 +145,7 @@ def index_repository(
         )
 
     extensions = {ext if ext.startswith(".") else f".{ext}" for ext in request.file_extensions}
-    emb_provider = StubEmbeddingProvider()
+    emb_provider = get_embedding_provider()
 
     files_indexed = 0
     chunks_created = 0
@@ -187,35 +191,60 @@ def index_repository(
                 files_skipped += 1
                 continue
 
-        # Chunk
-        if language == "python":
-            raw_chunks = _chunk_python(content)
-        else:
-            raw_chunks = _chunk_fixed(content)
+        # Semantic Chunking with Intelligent Chunking Engine
+        chunk_res = chunk_text(
+            text=content,
+            strategy=ChunkingStrategy.AUTO,
+            metadata=ChunkMetadata(
+                file_path=rel_path,
+                language=language,
+                source="code",
+            ),
+            config=ChunkingConfig(
+                chunk_size=1500,
+                chunk_overlap=200,
+                language=language,
+            ),
+        )
 
-        for chunk_content, start_line, end_line, chunk_type, symbol_name in raw_chunks:
-            # Create MemoryEntry for the chunk
-            mem_entry = MemoryEntry(
-                organization_id=organization_id,
-                memory_type=MemoryType.artifact,
-                title=f"{rel_path}:{start_line} [{symbol_name or chunk_type}]",
-                content=chunk_content[:3000],
-                meta={
+        for ch in chunk_res.chunks:
+            chunk_content = ch.content[:3000]
+            start_line = ch.start_line
+            end_line = ch.end_line
+            chunk_type = ch.metadata.chunk_type or "block"
+            symbol_name = ch.metadata.symbol_name
+            chunk_hash = ch.chunk_hash
+
+            chunk_meta = chunk_to_memory_meta(
+                ch,
+                extra_fields={
                     "source": "code",
                     "file_path": rel_path,
                     "language": language,
                     "chunk_type": chunk_type,
                     "symbol_name": symbol_name,
-                    "start_line": start_line,
-                    "end_line": end_line,
+                    "chunk_hash": chunk_hash,
                 },
             )
-            db.add(mem_entry)
-            db.flush()
 
-            # Store embedding
-            embedding = emb_provider.embed(chunk_content[:2000])
-            mem_entry.embedding = embedding
+            # Re-use existing embedding from cache/db if chunk hash matches
+            cached_emb = EmbeddingCache().get(chunk_hash)
+            if cached_emb is not None:
+                embedding = cached_emb
+            else:
+                embedding = emb_provider.embed(chunk_content[:2000])
+                EmbeddingCache().set(chunk_hash, embedding)
+
+            # Create MemoryEntry for the chunk
+            mem_entry = MemoryEntry(
+                organization_id=organization_id,
+                memory_type=MemoryType.artifact,
+                title=f"{rel_path}:{start_line} [{symbol_name or chunk_type}]",
+                content=chunk_content,
+                meta=chunk_meta,
+                embedding=embedding,
+            )
+            db.add(mem_entry)
             db.flush()
 
             chunk = CodeChunk(
@@ -224,7 +253,7 @@ def index_repository(
                 memory_entry_id=mem_entry.id,
                 chunk_type=chunk_type,
                 symbol_name=symbol_name,
-                content=chunk_content[:3000],
+                content=chunk_content,
                 start_line=start_line,
                 end_line=end_line,
                 embedding=embedding,
@@ -267,7 +296,7 @@ def search_code(
     request: CodeSearchRequest,
 ) -> CodeSearchResponse:
     """Search code chunks using embedding similarity."""
-    emb_provider = StubEmbeddingProvider()
+    emb_provider = get_embedding_provider()
     query_embedding = emb_provider.embed(request.query)
 
     stmt = (

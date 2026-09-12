@@ -167,3 +167,103 @@ def _build_citation_strings(entries: list) -> list[str]:
             f"[{i}] {entry.memory_type.value}{title} (id: {entry.id})"
         )
     return result
+
+
+def stream_rag(
+    db: Session,
+    question: str,
+    organization_id: UUID,
+    top_k: int = 5,
+    scenario_id: UUID | None = None,
+    embedding_provider: EmbeddingProvider | None = None,
+    generation_provider: GenerationProvider | None = None,
+    use_hybrid: bool = False,
+):
+    """Execute RAG pipeline and yield Server-Sent Events (SSE) chunks.
+
+    Yields JSON data formatted as SSE events:
+      data: {"type": "metadata", "citations": [...], ...}\n\n
+      data: {"type": "token", "token": "..."}\n\n
+      data: {"type": "done", "answer": "..."}\n\n
+    """
+    import json
+
+    emb_provider = embedding_provider or StubEmbeddingProvider()
+    gen_provider = generation_provider or get_generation_provider()
+
+    retrieval_mode = "semantic"
+    hybrid_results: list[HybridResult] = []
+    if use_hybrid:
+        retrieval_mode = "hybrid"
+        retriever = HybridRetriever(
+            db=db,
+            organization_id=organization_id,
+            embedding_provider=emb_provider,
+            top_k=top_k,
+        )
+        hybrid_results = retriever.retrieve(question)
+        retrieved_entries = [r.memory for r in hybrid_results]
+        from app.memory.rag_context import _format_context
+        context_text = _format_context(question, retrieved_entries)
+    else:
+        rag_ctx = build_rag_context(
+            db=db,
+            query=question,
+            organization_id=organization_id,
+            provider=emb_provider,
+            top_k=top_k,
+            scenario_id=scenario_id,
+        )
+        retrieved_entries = rag_ctx.entries
+        context_text = rag_ctx.context_text
+
+    citations = _build_citation_strings(retrieved_entries)
+
+    # 1. Yield initial metadata event
+    metadata_event = {
+        "type": "metadata",
+        "citations": citations,
+        "retrieved_memory_count": len(retrieved_entries),
+        "provider_used": gen_provider.provider_name,
+        "retrieval_mode": retrieval_mode,
+    }
+    yield f"data: {json.dumps(metadata_event)}\n\n"
+
+    # 2. Assemble prompt
+    prompt = build_prompt(
+        question=question,
+        context_text=context_text,
+        entries=retrieved_entries,
+        max_chars=settings.GRANITE_MAX_PROMPT_CHARS,
+    )
+
+    # 3. Stream generated tokens
+    accumulated_tokens: list[str] = []
+    try:
+        if hasattr(gen_provider, "stream_generate"):
+            for token in gen_provider.stream_generate(prompt):
+                accumulated_tokens.append(token)
+                token_event = {"type": "token", "token": token}
+                yield f"data: {json.dumps(token_event)}\n\n"
+        else:
+            full_text = gen_provider.generate(prompt)
+            accumulated_tokens.append(full_text)
+            token_event = {"type": "token", "token": full_text}
+            yield f"data: {json.dumps(token_event)}\n\n"
+    except Exception as exc:
+        err_msg = f"\n[Generation error: {type(exc).__name__} - {str(exc)}]"
+        accumulated_tokens.append(err_msg)
+        yield f"data: {json.dumps({'type': 'token', 'token': err_msg})}\n\n"
+
+    full_answer = "".join(accumulated_tokens)
+
+    # 4. Yield done event
+    done_event = {
+        "type": "done",
+        "answer": full_answer,
+        "citations": citations,
+        "retrieved_memory_count": len(retrieved_entries),
+        "provider_used": gen_provider.provider_name,
+        "retrieval_mode": retrieval_mode,
+    }
+    yield f"data: {json.dumps(done_event)}\n\n"

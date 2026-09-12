@@ -284,3 +284,85 @@ def get_commits_by_repository(
         .limit(limit)
     )
     return db.scalars(stmt).all()
+
+
+# ---------------------------------------------------------------------------
+# Git Intelligence Engine Helpers (AI-004)
+# ---------------------------------------------------------------------------
+
+from app.git.git_repository import GitRepositoryWrapper
+from app.git.repository_indexer import GitRepositoryIndexer
+from app.git.git_models import GitBranchInfo, GitTagInfo, GitDiffSummary, RepositoryHealth, IncrementalIndexResult
+from app.schemas.repository import IncrementalIndexRequest
+
+
+def get_repository_health(
+    db: Session,
+    repository_id: UUID,
+    organization_id: UUID,
+) -> RepositoryHealth:
+    repo = get_repository_by_id(db, repository_id)
+    if repo is None or repo.organization_id != organization_id:
+        return RepositoryHealth(
+            is_valid_git=False,
+            path="",
+            default_branch="main",
+            error="Repository not found or access denied.",
+        )
+    wrapper = GitRepositoryWrapper(repo.remote_url)
+    return wrapper.get_health()
+
+
+def get_repository_branches(
+    db: Session,
+    repository_id: UUID,
+    organization_id: UUID,
+) -> list[GitBranchInfo]:
+    repo = get_repository_by_id(db, repository_id)
+    if repo is None or repo.organization_id != organization_id:
+        return []
+    wrapper = GitRepositoryWrapper(repo.remote_url)
+    return wrapper.get_branches()
+
+
+def get_repository_tags(
+    db: Session,
+    repository_id: UUID,
+    organization_id: UUID,
+) -> list[GitTagInfo]:
+    repo = get_repository_by_id(db, repository_id)
+    if repo is None or repo.organization_id != organization_id:
+        return []
+    wrapper = GitRepositoryWrapper(repo.remote_url)
+    return wrapper.get_tags()
+
+
+def get_repository_diff(
+    db: Session,
+    repository_id: UUID,
+    organization_id: UUID,
+    base_ref: str | None = None,
+    target_ref: str | None = None,
+) -> GitDiffSummary:
+    repo = get_repository_by_id(db, repository_id)
+    if repo is None or repo.organization_id != organization_id:
+        return GitDiffSummary()
+    wrapper = GitRepositoryWrapper(repo.remote_url)
+    return wrapper.get_diff(base_ref=base_ref, target_ref=target_ref)
+
+
+def incremental_index_repository(
+    db: Session,
+    repository_id: UUID,
+    organization_id: UUID,
+    request: IncrementalIndexRequest,
+) -> IncrementalIndexResult:
+    indexer = GitRepositoryIndexer(
+        db=db,
+        repository_id=repository_id,
+        organization_id=organization_id,
+        file_extensions=request.file_extensions,
+        max_files=request.max_files,
+    )
+    return indexer.index(force_full=request.force_full)
+
