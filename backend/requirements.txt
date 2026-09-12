@@ -16,9 +16,10 @@ alembic
 psycopg[binary]
 pgvector
 
-# LangChain Production RAG
+# LangChain & LangGraph
 langchain
 langchain-core
 langchain-community
 langchain-ollama
 langchain-postgres
+langgraph
